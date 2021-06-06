@@ -1,12 +1,12 @@
 
-CFLAGS ?= -std=gnu18 -Wall -Wextra -Os -g -flto
-LDFLAGS ?= -Os -flto
+CFLAGS ?= -std=gnu18 -Wall -Wextra -O3 -flto
+LDFLAGS ?= -O3 -flto -lcomctl32 -lUxTheme -static -mwindows
 target := gui.exe
 
 all: $(target)
 
 
-object_files := test.o resource.res
+object_files := test.o templatewindow.o resource.res
 
 test.o: resource.h
 resource.res: resource.rc resource.h icon.ico

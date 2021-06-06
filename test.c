@@ -4,13 +4,60 @@
 #include <dwmapi.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "resource.h"
+#include "templatewindow.h"
 
+const char* string_array[] = {"string1", "secondstring", "anothertext", "uwu", "onii-chan", "bruder muss los"};
 const char g_szClassName[] = "myWindowClass";
 static HINSTANCE me;
 
+#define WM_RETICULATE_SPLINES (WM_USER + 0x0001)
+
 static HWND edit_text;
+static HWND mainWindow;
+
+void* updateProgressBar(void* _args)
+{
+    HWND progress_bar;
+    memcpy(&progress_bar, _args, sizeof(HWND));
+
+    SendMessage(progress_bar, PBM_SETRANGE, 0, MAKELONG(0, 5000));
+    for (int i = 0; i < 500; i++) {
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        Sleep(rand() % 100);
+    }
+
+    while (true) {
+        HWND new_progress_bar = (HWND) SendMessage(mainWindow, WM_RETICULATE_SPLINES, 0, 0);
+        // HWND new_progress_bar = CreateWindowEx(0, PROGRESS_CLASS, NULL, WS_CHILD | WS_VISIBLE | PBS_SMOOTH, rand() % 500, rand() % 500, 200, GetSystemMetrics(SM_CYVSCROLL), mainWindow, NULL, me, NULL);
+        SendMessage(new_progress_bar, PBM_SETRANGE, 0, MAKELONG(0, 1000));
+        for (int i = 0; i < 100; i++) {
+            SendMessage(new_progress_bar, PBM_STEPIT, 0, 0);
+            Sleep(rand() % 100);
+        }
+    }
+
+    HWND second_progress_bar;
+    memcpy(&second_progress_bar, _args + sizeof(HWND), sizeof(HWND));
+    SendMessage(second_progress_bar, PBM_SETRANGE, 0, MAKELONG(0, 5000));
+    for (int i = 0; i < 500; i++) {
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        // SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+        SendMessage(second_progress_bar, PBM_STEPIT, 0, 0);
+        Sleep(rand() % 100);
+    }
+
+
+    return NULL;
+}
 
 int get_number()
 {
@@ -22,29 +69,70 @@ int get_number()
 
 int windows_created;
 
+pthread_t worker_thread;
+
+
 // Step 4: the Window Procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
     {
+        case WM_RETICULATE_SPLINES: {
+            HWND newProgressBar = CreateWindowEx(0, PROGRESS_CLASS, NULL, WS_CHILD | WS_VISIBLE | PBS_SMOOTH, rand() % 750, rand() % 750, 200, GetSystemMetrics(SM_CYVSCROLL), mainWindow, NULL, me, NULL);
+            return (LRESULT) newProgressBar;
+        }
         case WM_CLOSE: {
-            // DestroyWindow(hwnd);
+            MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
+            // INITCOMMONCONTROLSEX icex = {
+            //     .dwICC = ICC_PROGRESS_CLASS,
+            //     .dwSize = sizeof(INITCOMMONCONTROLSEX)
+            // };
+            // InitCommonControlsEx(&icex);
+            // HWND progress_bar = CreateWindowEx(0, PROGRESS_CLASS, NULL, WS_CHILD | WS_VISIBLE, 10, 10, 100, GetSystemMetrics(SM_CYVSCROLL), hwnd, NULL, me, NULL);
+
+            // for (int i = 0; i < 10; i++) {
+            //     SendMessage(progress_bar, PBM_STEPIT, 0, 0);
+            //     Sleep(1000);
+            // }
+            DestroyWindow(hwnd);
             // char integer[18];
             // sprintf(integer, "%d", get_number());
             // sprintf(integer + 10, "%d", rand());
             // WinMain(NULL, NULL, integer, SW_SHOWNORMAL);
-            MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
             break;
         }
         case WM_DESTROY:
             // MessageBox(hwnd, "nice one", "what", 0);
             PostQuitMessage(0);
             break;
+        // case
         case WM_COMMAND:
+            // printf("got here wm_command\n");
             if (lParam && HIWORD(wParam) == BN_CLICKED) {
-                char* IQ_text = malloc(100);
+                char* IQ_text = calloc(100, 1);
                 int iq;
                 int unlikely = 0;
+                INITCOMMONCONTROLSEX icex = {
+                    .dwICC = ICC_PROGRESS_CLASS,
+                    .dwSize = sizeof(INITCOMMONCONTROLSEX)
+                };
+                InitCommonControlsEx(&icex);
+                HWND progress_bar_text = CreateWindowEx(0, "STATIC", NULL, WS_CHILD | WS_VISIBLE, 10, 0, 2000, GetSystemMetrics(SM_CYVSCROLL), hwnd, NULL, me, NULL);
+                SetWindowText(progress_bar_text, "Deleting system32...");
+                HWND progress_bar = CreateWindowEx(0, PROGRESS_CLASS, NULL, WS_CHILD | WS_VISIBLE | PBS_SMOOTH, 10, 20, 500, GetSystemMetrics(SM_CYVSCROLL), hwnd, NULL, me, NULL);
+                void* to_leak = malloc(sizeof(HWND) * 2);
+                memcpy(to_leak, &progress_bar, sizeof(HWND));
+                HWND second_progress_bar = CreateWindowEx(WS_EX_STATICEDGE, PROGRESS_CLASS, NULL, WS_CHILD | WS_VISIBLE | PBS_SMOOTH | WS_CLIPSIBLINGS, 500+10, 20, 500, GetSystemMetrics(SM_CYVSCROLL), hwnd, NULL, me, NULL);
+                SetWindowTheme(second_progress_bar, NULL, NULL);
+                LONG style = GetWindowLong(second_progress_bar, GWL_EXSTYLE);
+                style &= ~WS_EX_STATICEDGE;
+                SetWindowLong(second_progress_bar, GWL_EXSTYLE, style);
+                SendMessage(second_progress_bar, PBM_SETBKCOLOR, 0, RGB(255, 255, 255));
+                memcpy(to_leak + sizeof(HWND), &second_progress_bar, sizeof(HWND));
+                // mainWindow = hwnd;
+                pthread_create(&worker_thread, NULL, updateProgressBar, to_leak);
+                // pthread_detach(worker_thread);
+
                 while (1) {
                     iq = rand() % 150;
                     if (iq < 70) continue;
@@ -52,7 +140,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     unlikely += distance_from_100;
                     if (distance_from_100 <= unlikely / 4) break;
                 }
-                sprintf(IQ_text, "\r\nCalculated IQ: %d", iq);
+                // FILE* textfileiguess = fopen("G:\\Dokumente\\Google Takeout.7z", "rb");
+                // fseek(textfileiguess, 0, SEEK_END);
+                // size_t file_size = ftello64(textfileiguess);
+                // char* text = malloc(file_size + 1);
+                // rewind(textfileiguess);
+                // fread(text, 1, file_size, textfileiguess);
+                // fclose(textfileiguess);
+                // sprintf(IQ_text, "\r\nCalculated IQ: %d", iq);
                 SetWindowText(edit_text, IQ_text);
             }
             break;
@@ -63,6 +158,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         }
         default:
+            // printf("got here with msg %d\n", msg);
             return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     return 0;
@@ -117,32 +213,56 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
         UINT style = WS_OVERLAPPEDWINDOW ;
         AdjustWindowRectEx(&rect, style, 0, 0);
         // DwmGetWindowAttribute()
-        char window_name[30] = "IQ calculator window ";
+        char window_name[30] = "high quality gui ";
         sprintf(window_name + 21, "%d", windows_created);
         hwnd = CreateWindowEx(
-            WS_EX_CLIENTEDGE,
+            WS_EX_CLIENTEDGE | WS_EX_LAYERED,
             g_szClassName,
             window_name,
             style,
             CW_USEDEFAULT, CW_USEDEFAULT, rect.right-rect.left, rect.bottom-rect.top,
             NULL, NULL, hInstance, NULL);
+        mainWindow = hwnd;
         // AdjustWindowRect(&rect, 0, 0);
         // SetWindowPos(hwnd, NULL, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
+        SetLayeredWindowAttributes(hwnd, 0, 230, LWA_ALPHA);
 
         // button
+        for (int i = 0; i < 100; i++) {
+
+            HWND childWindow = CreateEmptyWindow(hwnd, hInstance, i, i, 100, 100, "testwindownew", WndProc);
+
+
         CreateWindow(
             "BUTTON",  // Predefined class; Unicode assumed
-            "Calculate IQ",      // Button text
-            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
-            100,         // x position
-            100,         // y position
+            "Ok",      // Button text
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_CHECKBOX,  // Styles
+            rand() % 1000,         // x position
+            rand() % 1000,         // y position
             100,        // Button width
-            30,        // Button height
+            60,        // Button height
+            childWindow,     // Parent window
+            (HMENU) IDOK,       // No menu.
+            hInstance,
+            NULL
+        );      // Pointer not needed.
+        CreateWindow(
+            "BUTTON",  // Predefined class; Unicode assumed
+            "Ok",      // Button text
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | WS_CLIPSIBLINGS,  // Styles
+            rand() % 1000,         // x position
+            rand() % 1000,         // y position
+            100,        // Button width
+            60,        // Button height
             hwnd,     // Parent window
             NULL,       // No menu.
             hInstance,
             NULL
         );      // Pointer not needed.
+        SetClassLongPtr(childWindow, GWLP_WNDPROC, (LONG_PTR) WndProc);
+
+        // window.
+        }
 
         // text above the button
         edit_text = CreateWindow(
