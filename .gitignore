@@ -1,0 +1,6 @@
+.vscode/
+.vs/
+
+*.o
+resource.res
+gui.exe
