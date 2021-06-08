@@ -6,11 +6,13 @@ target := gui.exe
 all: $(target)
 
 
-object_files := test.o templatewindow.o resource.res
+object_files := test.o templatewindow.o resource.res manifest.res
 
+%.res : %.rc
+	windres --output-format=coff $< $@
 test.o: resource.h templatewindow.h
-resource.res: resource.rc resource.h icon.ico
-	windres --output-format=coff resource.rc $@
+resource.res: resource.h icon.ico
+manifest.res: gui.exe.manifest
 
 
 $(target): $(object_files) bnk-extract.dll

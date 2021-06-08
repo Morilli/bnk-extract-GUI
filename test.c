@@ -49,16 +49,24 @@ HBRUSH text_background_color;
 #define turquoise (RGB(64, 224, 208))
 #define dark_turquoise (RGB(0, 206, 209))
 
+// thanks stackoverflow https://stackoverflow.com/questions/35415636/win32-using-the-default-button-font-in-a-button
+BOOL CALLBACK EnumChildProc(HWND hWnd, __attribute__((unused)) LPARAM lParam)
+{
+    // IT is not rEcomMeNDED THAT yOU EmPlOY tHIS metHOD tO OBtAIN thE CUrRenT foNt uSed bY DiaLogS AnD WIndoWS.
+    HFONT hfDefault = (HFONT) GetStockObject(DEFAULT_GUI_FONT);
+    SendMessage(hWnd, WM_SETFONT, (WPARAM) hfDefault, MAKELPARAM(TRUE, 0));
+    return TRUE;
+}
 
 // Step 4: the Window Procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
     {
-        case WM_CTLCOLORSTATIC:
-            if (!text_background_color) text_background_color = CreateSolidBrush(turquoise);
-            SetBkColor((HDC) wParam, dark_turquoise);
-            return (LRESULT) text_background_color;
+        // case WM_CTLCOLORSTATIC:
+            // if (!text_background_color) text_background_color = CreateSolidBrush(turquoise);
+            // SetBkColor((HDC) wParam, dark_turquoise);
+            // return (LRESULT) text_background_color;
         case WM_CLOSE: {
             MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
             DestroyWindow(hwnd);
@@ -172,28 +180,23 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, hwnd, NULL, hInstance, NULL);
-    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 30, 450, 20, hwnd, NULL, hInstance, NULL);
-    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 50, 450, 20, hwnd, NULL, hInstance, NULL);
+    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 31, 450, 20, hwnd, NULL, hInstance, NULL);
+    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 52, 450, 20, hwnd, NULL, hInstance, NULL);
 
     // buttons yay
-    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 10, 110, 20, hwnd, NULL, hInstance, NULL);
-    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 30, 110, 20, hwnd, NULL, hInstance, NULL);
-    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 50, 110, 20, hwnd, NULL, hInstance, NULL);
+    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 9, 110, 22, hwnd, NULL, hInstance, NULL);
+    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 30, 110, 22, hwnd, NULL, hInstance, NULL);
+    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 51, 110, 22, hwnd, NULL, hInstance, NULL);
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 28, 130, 24, hwnd, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when the button gets pushed
     SendMessage(BinFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
     SendMessage(AudioFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
     SendMessage(EventsFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
     SendMessage(GoButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
-    // snatch the nice font from the treeview and slap it onto the textboxes
-    // note that there is likely a better way to do this but this works i guess so
-    LRESULT fontHandle = SendMessage(treeview, WM_GETFONT, 0, 0);
-    SendMessage(BinTextBox, WM_SETFONT, fontHandle, 0);
-    SendMessage(AudioTextBox, WM_SETFONT, fontHandle, 0);
-    SendMessage(EventsTextBox, WM_SETFONT, fontHandle, 0);
 
 
     ShowWindow(hwnd, nCmdShow);
+    EnumChildWindows(hwnd, EnumChildProc, 0);
     UpdateWindow(hwnd);
 
     // Step 3: The Message Loop

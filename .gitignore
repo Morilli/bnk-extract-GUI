@@ -2,5 +2,5 @@
 .vs/
 
 *.o
-resource.res
+*.res
 gui.exe
