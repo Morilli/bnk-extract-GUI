@@ -1,53 +1,67 @@
 #include <windows.h>
 #include <stdio.h>
-// #include <stdlib.h>
 #include <dwmapi.h>
-#include <math.h>
 #include <time.h>
 #include <pthread.h>
+#include <vorbis/vorbisfile.h>
+
+#include "alpecin.bin"
+#include "spast.bin"
 
 #include "resource.h"
 #include "templatewindow.h"
 #include "list.h"
+#include "utility.h"
+#include "api.h"
 
-typedef struct stringWithChildren {
-    char* string;
-    LIST(struct stringWithChildren) children;
-} StringWithChildren;
-
-__declspec(dllimport) StringWithChildren* bnk_extract(int argc, char* argv[]);
-
-#define function void*
+ReadableBinaryData exampleOgg = {
+    .data = spast,
+    .size = sizeof(spast)
+};
 
 void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITEM parent)
 {
+    // printf("oggData: %p\n", element->oggData->data);
+    // printf("lement string: \"%s\"\n", element->string);
     TVINSERTSTRUCT newItemInfo = {
         .hInsertAfter = TVI_LAST,
         .hParent = parent,
-        .item = {
-            .mask = TVIF_TEXT,
-            .pszText = element->string
+        .item = ({TV_ITEM tvItem; if (element->oggData) {
+            // printf("oggData: %p\n", element->oggData);
+            ReadableBinaryData* data = calloc(1, sizeof(ReadableBinaryData));
+            data->data = element->oggData->data;
+            data->size = element->oggData->length;
+            tvItem = (TV_ITEM) {
+                .mask = TVIF_TEXT | TVIF_PARAM,
+                .pszText = element->string,
+                .lParam = (LPARAM) data
+            };
+        } else {
+            tvItem = (TV_ITEM) {
+                .mask = TVIF_TEXT,
+                .pszText = element->string
+            };
         }
+        tvItem; })
     };
-    HTREEITEM newItem = (HTREEITEM) SendMessage(Treeview, TVM_INSERTITEM, 0, (LPARAM) &newItemInfo);
+    free(element->oggData); // if we're not doing it here... where else would we
+    HTREEITEM newItem = TreeView_InsertItem(Treeview, &newItemInfo);
 
     for (uint32_t i = 0; i < element->children.length; i++) {
         InsertStringToTreeview(Treeview, &element->children.objects[i], newItem);
     }
+    free(element->children.objects);
 }
 
+// global window variables
 const char g_szClassName[] = "myWindowClass";
 static HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton;
 static HWND treeview;
-
 pthread_t worker_thread;
-HBRUSH text_background_color;
 
-#define turquoise (RGB(64, 224, 208))
-#define dark_turquoise (RGB(0, 206, 209))
 
 // thanks stackoverflow https://stackoverflow.com/questions/35415636/win32-using-the-default-button-font-in-a-button
 BOOL CALLBACK EnumChildProc(HWND hWnd, __attribute__((unused)) LPARAM lParam)
@@ -63,18 +77,47 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
     {
-        // case WM_CTLCOLORSTATIC:
-            // if (!text_background_color) text_background_color = CreateSolidBrush(turquoise);
-            // SetBkColor((HDC) wParam, dark_turquoise);
-            // return (LRESULT) text_background_color;
+        case WM_NOTIFY: {
+            // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
+            if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
+                HTREEITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew.hItem;
+                char filenameBuffer[15] = {0};
+                TVITEM treeviewItem = {
+                    .mask = TVIF_TEXT | TVIF_PARAM,
+                    .pszText = filenameBuffer,
+                    .cchTextMax = 14,
+                    .hItem = selectedItem
+                };
+                TreeView_GetItem(treeview, &treeviewItem);
+                // printf("cChildren: %d\n", treeviewItem.cChildren);
+                // printf("lParam: %p\n", treeviewItem.lParam);
+                // printf("text: \"%s\"", treeviewItem.pszText);
+                if (treeviewItem.lParam) {
+                    // printf("we are a child item\n");
+                    ReadableBinaryData* oggData = (ReadableBinaryData*) treeviewItem.lParam;
+                    oggData->position = 0;
+                    uint8_t* pcmData = WavFromOgg(oggData);
+                    if (!pcmData) {
+                        MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
+                        return 0;
+                    } else {
+                        // free audio buffer once finished playing
+                        PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
+                    }
+                }
+
+                return 0;
+            }
+            break;
+        }
         case WM_CLOSE: {
             MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
             DestroyWindow(hwnd);
-            break;
+            return 0;
         }
         case WM_DESTROY:
             PostQuitMessage(0);
-            break;
+            return 0;
         case WM_COMMAND:
             if (lParam && HIWORD(wParam) == BN_CLICKED) {
                 if ((HWND) lParam == GoButton) {
@@ -87,11 +130,36 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     if (structuredWems)
                         InsertStringToTreeview(treeview, structuredWems, TVI_ROOT);
                     else {
-                        MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\nIf there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
+                        MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
+                        "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
                     }
-                    // proceed to leak all allocated memory here
                     return 0;
                 }
+                OggVorbis_File oggDataInfo;
+                exampleOgg.position = 0;
+                printf("return value: %d\n", ov_open_callbacks(&exampleOgg, &oggDataInfo, NULL, 0, oggCallbacks));
+                size_t rawPcmSize = ov_pcm_total(&oggDataInfo, -1) * oggDataInfo.vi->channels * 2; // 16 bit?
+                uint8_t* rawPcmDataFromOgg = malloc(rawPcmSize + 44);
+                memcpy(rawPcmDataFromOgg, "RIFF", 4);
+                memcpy(rawPcmDataFromOgg + 4, &(uint32_t) {rawPcmSize + 36}, 4);
+                memcpy(rawPcmDataFromOgg + 8, "WAVEfmt ", 8);
+                memcpy(rawPcmDataFromOgg + 16, &(uint32_t) {0x10}, 4);
+                memcpy(rawPcmDataFromOgg + 20, &(uint32_t) {0x01}, 2);
+                memcpy(rawPcmDataFromOgg + 22, &oggDataInfo.vi->channels, 2);
+                memcpy(rawPcmDataFromOgg + 24, &oggDataInfo.vi->rate, 4);
+                memcpy(rawPcmDataFromOgg + 28, &(uint32_t) {oggDataInfo.vi->rate * oggDataInfo.vi->channels * 2}, 4);
+                memcpy(rawPcmDataFromOgg + 32, &(uint32_t) {oggDataInfo.vi->channels * 2}, 2);
+                memcpy(rawPcmDataFromOgg + 34, &(uint32_t) {16}, 2);
+                memcpy(rawPcmDataFromOgg + 36, "data", 4);
+                memcpy(rawPcmDataFromOgg + 40, &rawPcmSize, 4);
+                size_t current_position = 0;
+                while (current_position < rawPcmSize) {
+                    current_position += ov_read(&oggDataInfo, (char*) rawPcmDataFromOgg + 44 + current_position, rawPcmSize, 0, 2, 1, &(int) {0});
+                }
+                ov_clear(&oggDataInfo);
+                // printf("return value: %d\n", PlaySound((LPCSTR) rawPcmDataFromOgg, me, SND_MEMORY));
+                free(rawPcmDataFromOgg);
+                // PlaySound(MAKEINTRESOURCE(IN_DER_TAT_SOUND), me, SND_RESOURCE);
                 char fileNameBuffer[256] = {0};
                 OPENFILENAME fileNameInfo = {
                     .lStructSize = sizeof(OPENFILENAME),
@@ -104,12 +172,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     if ((HWND) lParam == AudioFileSelectButton) SetWindowText(AudioTextBox, fileNameBuffer);
                     if ((HWND) lParam == EventsFileSelectButton) SetWindowText(EventsTextBox, fileNameBuffer);
                 }
+
+                return 0;
             }
             break;
-        default:
-            return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-    return 0;
+
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)

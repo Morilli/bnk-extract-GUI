@@ -3,3 +3,5 @@
 
 #define ID_FILE_EXIT 9001
 #define ID_STUFF_GO 9002
+
+#define IN_DER_TAT_SOUND 141

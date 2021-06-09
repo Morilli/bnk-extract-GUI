@@ -15,3 +15,4 @@ BEGIN
 END
 
 IDI_MYICON ICON "icon.ico"
+IN_DER_TAT_SOUND WAVE "alpecin.wav"
