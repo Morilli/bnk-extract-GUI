@@ -5,29 +5,19 @@
 #include <pthread.h>
 #include <vorbis/vorbisfile.h>
 
-#include "alpecin.bin"
-#include "spast.bin"
-
 #include "resource.h"
 #include "templatewindow.h"
 #include "list.h"
 #include "utility.h"
 #include "api.h"
 
-ReadableBinaryData exampleOgg = {
-    .data = spast,
-    .size = sizeof(spast)
-};
 
 void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITEM parent)
 {
-    // printf("oggData: %p\n", element->oggData->data);
-    // printf("lement string: \"%s\"\n", element->string);
     TVINSERTSTRUCT newItemInfo = {
         .hInsertAfter = TVI_LAST,
         .hParent = parent,
         .item = ({TV_ITEM tvItem; if (element->oggData) {
-            // printf("oggData: %p\n", element->oggData);
             ReadableBinaryData* data = calloc(1, sizeof(ReadableBinaryData));
             data->data = element->oggData->data;
             data->size = element->oggData->length;
@@ -89,11 +79,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     .hItem = selectedItem
                 };
                 TreeView_GetItem(treeview, &treeviewItem);
-                // printf("cChildren: %d\n", treeviewItem.cChildren);
-                // printf("lParam: %p\n", treeviewItem.lParam);
-                // printf("text: \"%s\"", treeviewItem.pszText);
                 if (treeviewItem.lParam) {
-                    // printf("we are a child item\n");
                     ReadableBinaryData* oggData = (ReadableBinaryData*) treeviewItem.lParam;
                     oggData->position = 0;
                     uint8_t* pcmData = WavFromOgg(oggData);
@@ -101,7 +87,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
                         return 0;
                     } else {
-                        // free audio buffer once finished playing
+                        // TODO free audio buffer once finished playing
                         PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
                     }
                 }
@@ -135,37 +121,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                     return 0;
                 }
-                OggVorbis_File oggDataInfo;
-                exampleOgg.position = 0;
-                printf("return value: %d\n", ov_open_callbacks(&exampleOgg, &oggDataInfo, NULL, 0, oggCallbacks));
-                size_t rawPcmSize = ov_pcm_total(&oggDataInfo, -1) * oggDataInfo.vi->channels * 2; // 16 bit?
-                uint8_t* rawPcmDataFromOgg = malloc(rawPcmSize + 44);
-                memcpy(rawPcmDataFromOgg, "RIFF", 4);
-                memcpy(rawPcmDataFromOgg + 4, &(uint32_t) {rawPcmSize + 36}, 4);
-                memcpy(rawPcmDataFromOgg + 8, "WAVEfmt ", 8);
-                memcpy(rawPcmDataFromOgg + 16, &(uint32_t) {0x10}, 4);
-                memcpy(rawPcmDataFromOgg + 20, &(uint32_t) {0x01}, 2);
-                memcpy(rawPcmDataFromOgg + 22, &oggDataInfo.vi->channels, 2);
-                memcpy(rawPcmDataFromOgg + 24, &oggDataInfo.vi->rate, 4);
-                memcpy(rawPcmDataFromOgg + 28, &(uint32_t) {oggDataInfo.vi->rate * oggDataInfo.vi->channels * 2}, 4);
-                memcpy(rawPcmDataFromOgg + 32, &(uint32_t) {oggDataInfo.vi->channels * 2}, 2);
-                memcpy(rawPcmDataFromOgg + 34, &(uint32_t) {16}, 2);
-                memcpy(rawPcmDataFromOgg + 36, "data", 4);
-                memcpy(rawPcmDataFromOgg + 40, &rawPcmSize, 4);
-                size_t current_position = 0;
-                while (current_position < rawPcmSize) {
-                    current_position += ov_read(&oggDataInfo, (char*) rawPcmDataFromOgg + 44 + current_position, rawPcmSize, 0, 2, 1, &(int) {0});
-                }
-                ov_clear(&oggDataInfo);
-                // printf("return value: %d\n", PlaySound((LPCSTR) rawPcmDataFromOgg, me, SND_MEMORY));
-                free(rawPcmDataFromOgg);
-                // PlaySound(MAKEINTRESOURCE(IN_DER_TAT_SOUND), me, SND_RESOURCE);
+
                 char fileNameBuffer[256] = {0};
                 OPENFILENAME fileNameInfo = {
                     .lStructSize = sizeof(OPENFILENAME),
                     .hwndOwner = mainWindow,
                     .lpstrFile = fileNameBuffer,
-                    .nMaxFile = 256
+                    .nMaxFile = 255
                 };
                 if (GetOpenFileName(&fileNameInfo)) {
                     if ((HWND) lParam == BinFileSelectButton) SetWindowText(BinTextBox, fileNameBuffer);
@@ -185,7 +147,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
 {
     srand(time(NULL));
     // init used common controls
-    InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
+    // InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_TREEVIEW_CLASSES});
 
     me = hInstance;
