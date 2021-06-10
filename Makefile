@@ -10,8 +10,9 @@ object_files := test.o utility.o templatewindow.o resource.res manifest.res
 
 %.res : %.rc
 	windres --output-format=coff $< $@
-test.o: resource.h templatewindow.h
-resource.res: resource.h icon.ico alpecin.wav
+test.o: resource.h templatewindow.h utility.h
+utility.o: utility.h
+resource.res: resource.h icon.ico
 manifest.res: gui.exe.manifest
 
 

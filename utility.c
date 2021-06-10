@@ -1,13 +1,15 @@
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include <string.h>
 #include <vorbis/vorbisfile.h>
+#include <windows.h>
 
 #include "utility.h"
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 {
     OggVorbis_File oggDataInfo;
-    // exampleOgg.position = 0;
     int return_value = ov_open_callbacks(oggData, &oggDataInfo, NULL, 0, oggCallbacks);
     printf("return value: %d\n", return_value);
     if (return_value != 0) return NULL;
@@ -30,11 +32,26 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData)
         current_position += ov_read(&oggDataInfo, (char*) rawPcmDataFromOgg + 44 + current_position, rawPcmSize, 0, 2, 1, &(int) {0});
     }
     ov_clear(&oggDataInfo);
-    // printf("return value: %d\n", PlaySound((LPCSTR) rawPcmDataFromOgg, me, SND_MEMORY));
-    // free(rawPcmDataFromOgg);
 
     return rawPcmDataFromOgg;
 }
+
+void* PlayAudio(__attribute__((unused)) void* _args)
+{
+    char* previous_oggData = NULL;
+    while (true) {
+        char* oggData;
+        int readBytes = 0;
+        do {
+            readBytes += read(worker_thread_pipe[0], &oggData + readBytes, sizeof(char*) - readBytes);
+        } while (readBytes != sizeof(char*));
+        PlaySound(NULL, NULL, 0); // cancel all playing sounds
+        free(previous_oggData);
+        PlaySound(oggData, me, SND_MEMORY | SND_ASYNC);
+        previous_oggData = oggData;
+    }
+}
+
 
 size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource)
 {

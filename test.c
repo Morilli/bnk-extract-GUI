@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <dwmapi.h>
 #include <time.h>
 #include <pthread.h>
@@ -45,12 +46,13 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
 
 // global window variables
 const char g_szClassName[] = "myWindowClass";
-static HINSTANCE me;
+HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton;
 static HWND treeview;
 pthread_t worker_thread;
+int worker_thread_pipe[2];
 
 
 // thanks stackoverflow https://stackoverflow.com/questions/35415636/win32-using-the-default-button-font-in-a-button
@@ -85,10 +87,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     uint8_t* pcmData = WavFromOgg(oggData);
                     if (!pcmData) {
                         MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
-                        return 0;
                     } else {
-                        // TODO free audio buffer once finished playing
-                        PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
+                        int writtenBytes = 0;
+                        do {
+                            writtenBytes += write(worker_thread_pipe[1], &pcmData + writtenBytes, sizeof(char*) - writtenBytes);
+                        } while (writtenBytes != sizeof(char*));
                     }
                 }
 
@@ -113,9 +116,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     GetWindowText(EventsTextBox, eventsPath, 255);
                     char* bnk_extract_args[] = {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, "-vv", NULL};
                     StringWithChildren* structuredWems = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
-                    if (structuredWems)
+                    if (structuredWems) {
                         InsertStringToTreeview(treeview, structuredWems, TVI_ROOT);
-                    else {
+                        ShowWindow(treeview, SW_SHOWNORMAL);
+                    } else {
                         MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
                         "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
                     }
@@ -146,6 +150,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     srand(time(NULL));
+    _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
+    pthread_create(&worker_thread, NULL, PlayAudio, NULL);
+    pthread_detach(worker_thread);
     // init used common controls
     // InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_TREEVIEW_CLASSES});
@@ -188,7 +195,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     rect.top    = y;
     rect.right  = x + width;
     rect.bottom = y + height;
-    UINT style = WS_OVERLAPPEDWINDOW ;
+    UINT style = WS_OVERLAPPEDWINDOW;
     AdjustWindowRectEx(&rect, style, 0, 0);
     char window_name[] = "high quality gui uwu";
     hwnd = CreateWindowEx(
@@ -207,7 +214,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(hwnd, 0, 230, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(0, WC_TREEVIEW, NULL, WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 0, 80, 550, 400, hwnd, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 6, 80, 500, 380, hwnd, NULL, hInstance, NULL);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, hwnd, NULL, hInstance, NULL);
@@ -215,9 +222,9 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 52, 450, 20, hwnd, NULL, hInstance, NULL);
 
     // buttons yay
-    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 9, 110, 22, hwnd, NULL, hInstance, NULL);
-    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 30, 110, 22, hwnd, NULL, hInstance, NULL);
-    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 05, 51, 110, 22, hwnd, NULL, hInstance, NULL);
+    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 9, 110, 22, hwnd, NULL, hInstance, NULL);
+    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 30, 110, 22, hwnd, NULL, hInstance, NULL);
+    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 51, 110, 22, hwnd, NULL, hInstance, NULL);
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 28, 130, 24, hwnd, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when the button gets pushed
     SendMessage(BinFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
