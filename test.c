@@ -35,8 +35,10 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
         }
         tvItem; })
     };
+
     free(element->oggData); // if we're not doing it here... where else would we
     HTREEITEM newItem = TreeView_InsertItem(Treeview, &newItemInfo);
+    free(element->string);
 
     for (uint32_t i = 0; i < element->children.length; i++) {
         InsertStringToTreeview(Treeview, &element->children.objects[i], newItem);
@@ -49,7 +51,7 @@ const char g_szClassName[] = "myWindowClass";
 HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
-static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton;
+static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton;
 static HWND treeview;
 pthread_t worker_thread;
 int worker_thread_pipe[2];
@@ -72,17 +74,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_NOTIFY: {
             // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
-                HTREEITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew.hItem;
-                char filenameBuffer[15] = {0};
-                TVITEM treeviewItem = {
-                    .mask = TVIF_TEXT | TVIF_PARAM,
-                    .pszText = filenameBuffer,
-                    .cchTextMax = 14,
-                    .hItem = selectedItem
-                };
-                TreeView_GetItem(treeview, &treeviewItem);
-                if (treeviewItem.lParam) {
-                    ReadableBinaryData* oggData = (ReadableBinaryData*) treeviewItem.lParam;
+                TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
+                if (selectedItem.lParam) {
+                    ReadableBinaryData* oggData = (ReadableBinaryData*) selectedItem.lParam;
                     oggData->position = 0;
                     uint8_t* pcmData = WavFromOgg(oggData);
                     if (!pcmData) {
@@ -95,6 +89,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                 }
 
+                return 0;
+            } else if (((NMHDR*) lParam)->code == TVN_DELETEITEM) {
+                TVITEM toBeDeleted = ((NMTREEVIEW*) lParam)->itemOld;
+                if (toBeDeleted.lParam) {
+                    free((void*) ((ReadableBinaryData*) toBeDeleted.lParam)->data);
+                    free((ReadableBinaryData*) toBeDeleted.lParam);
+                }
                 return 0;
             }
             break;
@@ -123,6 +124,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
                         "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
                     }
+                    return 0;
+                } else if ((HWND) lParam == XButton) {
+                    TreeView_DeleteAllItems(treeview);
                     return 0;
                 }
 
@@ -226,6 +230,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 30, 110, 22, hwnd, NULL, hInstance, NULL);
     EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 51, 110, 22, hwnd, NULL, hInstance, NULL);
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 28, 130, 24, hwnd, NULL, hInstance, NULL);
+    XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, hwnd, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when the button gets pushed
     SendMessage(BinFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
     SendMessage(AudioFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
