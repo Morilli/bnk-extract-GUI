@@ -47,7 +47,7 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
 }
 
 // global window variables
-const char g_szClassName[] = "myWindowClass";
+const char g_szClassName[] = "bnk-extract GUI";
 HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
@@ -157,34 +157,29 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
     pthread_create(&worker_thread, NULL, PlayAudio, NULL);
     pthread_detach(worker_thread);
+    me = hInstance;
     // init used common controls
     // InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_TREEVIEW_CLASSES});
 
-    me = hInstance;
-    WNDCLASSEX wc;
-    HWND hwnd;
-    MSG Msg;
-
     //Step 1: Registering the Window Class
-
     int icon_size    = GetSystemMetrics(SM_CXICON);
     int iconsm_size  = GetSystemMetrics(SM_CXSMICON);
-    wc.cbSize        = sizeof(WNDCLASSEX);
-    wc.style         = 0;
-    wc.lpfnWndProc   = WndProc;
-    wc.cbClsExtra    = 0;
-    wc.cbWndExtra    = 0;
-    wc.hInstance     = hInstance;
-    wc.hIcon         = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, icon_size, icon_size, 0);
-    wc.hIconSm       = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, iconsm_size, iconsm_size, 0);
-    wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOWFRAME);
-    wc.lpszMenuName  = MAKEINTRESOURCE(IDR_MYMENU);
-    wc.lpszClassName = hInstance ? g_szClassName : &lpCmdLine[10];
-
-    if(!RegisterClassEx(&wc))
-    {
+    WNDCLASSEX windowClass = {
+        .cbSize        = sizeof(WNDCLASSEX),
+        .style         = 0,
+        .lpfnWndProc   = WndProc,
+        .cbClsExtra    = 0,
+        .cbWndExtra    = 0,
+        .hInstance     = hInstance,
+        .hIcon         = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, icon_size, icon_size, 0),
+        .hIconSm       = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, iconsm_size, iconsm_size, 0),
+        .hCursor       = LoadCursor(NULL, IDC_ARROW),
+        .hbrBackground = (HBRUSH)(COLOR_WINDOWFRAME),
+        .lpszMenuName  = MAKEINTRESOURCE(IDR_MYMENU),
+        .lpszClassName = hInstance ? g_szClassName : &lpCmdLine[10]
+    };
+    if (!RegisterClassEx(&windowClass)) {
         MessageBox(NULL, "Window Registration Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
@@ -202,51 +197,46 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     UINT style = WS_OVERLAPPEDWINDOW;
     AdjustWindowRectEx(&rect, style, 0, 0);
     char window_name[] = "high quality gui uwu";
-    hwnd = CreateWindowEx(
+    mainWindow = CreateWindowEx(
         WS_EX_CLIENTEDGE | WS_EX_LAYERED,
         g_szClassName,
         window_name,
         style,
         CW_USEDEFAULT, CW_USEDEFAULT, rect.right-rect.left, rect.bottom-rect.top,
         NULL, NULL, hInstance, NULL);
-    if(hwnd == NULL)
-    {
+    if (!mainWindow) {
         MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-    mainWindow = hwnd;
-    SetLayeredWindowAttributes(hwnd, 0, 230, LWA_ALPHA);
+    SetLayeredWindowAttributes(mainWindow, 0, 230, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 6, 80, 500, 380, hwnd, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
-    BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, hwnd, NULL, hInstance, NULL);
-    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 31, 450, 20, hwnd, NULL, hInstance, NULL);
-    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 52, 450, 20, hwnd, NULL, hInstance, NULL);
+    BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);
+    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 31, 450, 20, mainWindow, NULL, hInstance, NULL);
+    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 52, 450, 20, mainWindow, NULL, hInstance, NULL);
 
     // buttons yay
-    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 9, 110, 22, hwnd, NULL, hInstance, NULL);
-    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 30, 110, 22, hwnd, NULL, hInstance, NULL);
-    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 5, 51, 110, 22, hwnd, NULL, hInstance, NULL);
-    GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 28, 130, 24, hwnd, NULL, hInstance, NULL);
-    XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, hwnd, NULL, hInstance, NULL);
-    // disable the ugly selection outline of the text when the button gets pushed
-    SendMessage(BinFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
-    SendMessage(AudioFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
-    SendMessage(EventsFileSelectButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
-    SendMessage(GoButton, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 9, 110, 22, mainWindow, NULL, hInstance, NULL);
+    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 30, 110, 22, mainWindow, NULL, hInstance, NULL);
+    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 51, 110, 22, mainWindow, NULL, hInstance, NULL);
+    GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
+    XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
 
-
-    ShowWindow(hwnd, nCmdShow);
-    EnumChildWindows(hwnd, EnumChildProc, 0);
-    UpdateWindow(hwnd);
+    ShowWindow(mainWindow, nCmdShow);
+    EnumChildWindows(mainWindow, EnumChildProc, 0);
+    UpdateWindow(mainWindow);
 
     // Step 3: The Message Loop
+    MSG Msg;
     while(GetMessage(&Msg, NULL, 0, 0) > 0)
     {
-        TranslateMessage(&Msg);
-        DispatchMessage(&Msg);
+        if (!IsDialogMessage(mainWindow, &Msg)) {
+            TranslateMessage(&Msg);
+            DispatchMessage(&Msg);
+        }
     }
     return Msg.wParam;
 }
