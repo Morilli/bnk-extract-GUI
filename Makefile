@@ -1,6 +1,6 @@
 
 CFLAGS ?= -std=gnu18 -Wall -Wextra -Os -flto
-LDFLAGS ?= -Os -flto -g -lcomctl32 -lUxTheme -lgdi32 -lComdlg32 -lWinmm -lvorbisfile -logg -lvorbis libbnk-extract.a -static -Wl,--gc-sections
+LDFLAGS ?= -Os -flto -g -lole32 -luuid -lcomctl32 -lUxTheme -lgdi32 -lComdlg32 -lWinmm -lvorbisfile -logg -lvorbis libbnk-extract.a -static -Wl,--gc-sections
 target := gui.exe
 
 all: $(target)

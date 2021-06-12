@@ -4,7 +4,6 @@
 #include <dwmapi.h>
 #include <time.h>
 #include <pthread.h>
-#include <vorbis/vorbisfile.h>
 
 #include "resource.h"
 #include "templatewindow.h"
@@ -51,8 +50,8 @@ const char g_szClassName[] = "bnk-extract GUI";
 HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
-static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton;
-static HWND treeview;
+static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton;
+HWND treeview;
 pthread_t worker_thread;
 int worker_thread_pipe[2];
 
@@ -102,6 +101,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         case WM_CLOSE: {
             MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
+            CoUninitialize();
             DestroyWindow(hwnd);
             return 0;
         }
@@ -128,6 +128,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 } else if ((HWND) lParam == XButton) {
                     TreeView_DeleteAllItems(treeview);
                     return 0;
+                } else if ((HWND) lParam == ExtractButton) {
+                    HTREEITEM selectedItem = TreeView_GetSelection(treeview);
+                    if (!selectedItem) {
+                        const TASKDIALOG_BUTTON buttons[] = { {IDOK, L"rude"} };
+                        TASKDIALOGCONFIG taskDialogConfig = {
+                            .cbSize = sizeof(TASKDIALOGCONFIG),
+                            .hwndParent = hwnd,
+                            .pszMainIcon = TD_INFORMATION_ICON,
+                            .pButtons = buttons,
+                            .cButtons = ARRAYSIZE(buttons),
+                            .pszWindowTitle = L"nope",
+                            .pszContent = L"no selection, no action. fuck you\n",
+                            .dwFlags = TDF_ALLOW_DIALOG_CANCELLATION
+                        };
+                        TaskDialogIndirect(&taskDialogConfig, NULL, NULL, NULL);
+                        return 0;
+                    } else {
+                        ExtractSelectedItem(hwnd, selectedItem);
+                        return 0;
+                    }
                 }
 
                 char fileNameBuffer[256] = {0};
@@ -157,6 +177,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
     pthread_create(&worker_thread, NULL, PlayAudio, NULL);
     pthread_detach(worker_thread);
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     me = hInstance;
     // init used common controls
     // InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
@@ -224,7 +245,8 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 51, 110, 22, mainWindow, NULL, hInstance, NULL);
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
     XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
-    // disable the ugly selection outline of the text when the button gets pushed
+    ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
+    // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(mainWindow, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
 
     ShowWindow(mainWindow, nCmdShow);

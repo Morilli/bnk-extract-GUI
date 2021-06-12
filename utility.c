@@ -1,11 +1,73 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <string.h>
 #include <vorbis/vorbisfile.h>
 #include <windows.h>
+#include <shlobj.h>
+#include <direct.h>
 
 #include "utility.h"
+
+void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
+{
+    UINT mask = TVIF_CHILDREN | TVIF_PARAM | TVIF_TEXT;
+    if (!TreeView_GetParent(treeview, hItem)) {
+        // check whether this is a "global" root item. If so, do not use its (path-like) label text and abuse the fact "//" is equivalent to "/"
+        // This should probably be done differently in the future
+        mask &= ~TVIF_TEXT;
+    }
+    char itemText[256] = {0};
+    TVITEM tvItem = {
+        .mask = mask,
+        .hItem = hItem,
+        .pszText = itemText,
+        .cchTextMax = 255
+    };
+    TreeView_GetItem(treeview, &tvItem);
+    wchar_t current_output_path[wcslen(output_path) + strlen(tvItem.pszText) + 2];
+    _swprintf(current_output_path, L"%s/", output_path);
+    mbstowcs(current_output_path + wcslen(output_path) + 1, tvItem.pszText, strlen(tvItem.pszText) + 1);
+
+    if (tvItem.lParam) { // item is a child item, has ogg data associated with it
+        FILE* output_file = _wfopen(current_output_path, L"wb");
+        if (!output_file) {
+            MessageBoxW(NULL, L"Failed to open an output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
+            return;
+        }
+        fwrite(((ReadableBinaryData*) tvItem.lParam)->data, ((ReadableBinaryData*) tvItem.lParam)->size, 1, output_file);
+        fclose(output_file);
+    } else if (tvItem.cChildren > 0) { // item is a parent item, so extract all children
+        // note that cChildren > 0 *should* always be true here
+        _wmkdir(current_output_path);
+        HTREEITEM child = TreeView_GetChild(treeview, hItem);
+
+        do {
+            ExtractItems(child, current_output_path);
+        } while ( (child = TreeView_GetNextSibling(treeview, child)) );
+    }
+}
+
+void ExtractSelectedItem(HWND parent, HTREEITEM item)
+{
+    printf("item: %p\n", item);
+    IFileDialog* pFileDialog;
+    // initialize a FileOpenDialog interface
+    CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, &IID_IFileOpenDialog, (void**) &pFileDialog);
+    FILEOPENDIALOGOPTIONS options;
+    pFileDialog->lpVtbl->GetOptions(pFileDialog, &options);
+    pFileDialog->lpVtbl->SetOptions(pFileDialog, options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM); // make this dialog a folder picker
+    if (pFileDialog->lpVtbl->Show(pFileDialog, parent) != S_OK) return; // show the dialog
+    IShellItem* selectedItem;
+    pFileDialog->lpVtbl->GetResult(pFileDialog, &selectedItem); // get the user-selected item
+    pFileDialog->lpVtbl->Release(pFileDialog);
+    wchar_t* selectedFolder;
+    selectedItem->lpVtbl->GetDisplayName(selectedItem, SIGDN_FILESYSPATH, &selectedFolder); // get the file system path from the selected item
+    selectedItem->lpVtbl->Release(selectedItem);
+    printf("selected output folder: \"%ls\"\n", selectedFolder);
+
+    ExtractItems(item, selectedFolder);
+    CoTaskMemFree(selectedFolder);
+}
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 {

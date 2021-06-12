@@ -3,8 +3,10 @@
 
 #include <vorbis/vorbisfile.h>
 #include <stdint.h>
+#include <dwmapi.h>
 
 extern HINSTANCE me;
+extern HWND treeview;
 extern int worker_thread_pipe[2];
 
 typedef struct {
@@ -14,6 +16,8 @@ typedef struct {
 } ReadableBinaryData;
 
 extern ov_callbacks oggCallbacks;
+
+void ExtractSelectedItem(HWND parent, HTREEITEM item);
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
