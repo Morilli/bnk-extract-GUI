@@ -19,6 +19,8 @@ extern ov_callbacks oggCallbacks;
 
 void ExtractSelectedItem(HWND parent, HTREEITEM item);
 
+void* FillProgressBar(void* _args);
+
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
 void* PlayAudio(void* _args);

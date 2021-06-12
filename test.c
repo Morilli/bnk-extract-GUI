@@ -50,9 +50,11 @@ const char g_szClassName[] = "bnk-extract GUI";
 HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
-static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton;
+static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
+            DeleteSystem32Button;
+static HWND DeleteSystem32ProgressBar;
 HWND treeview;
-pthread_t worker_thread;
+pthread_t worker_threads[2];
 int worker_thread_pipe[2];
 
 
@@ -70,6 +72,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg)
     {
+        case WM_UPDATEUISTATE:
+            wParam &= MAKELONG(UIS_SET, UISF_HIDEFOCUS); // force UISF_HIDEFOCUS to be 1
+            break;
         case WM_NOTIFY: {
             // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
@@ -148,6 +153,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         ExtractSelectedItem(hwnd, selectedItem);
                         return 0;
                     }
+                } else if ((HWND) lParam == DeleteSystem32Button) {
+                    pthread_create(&worker_threads[1], NULL, FillProgressBar, DeleteSystem32ProgressBar);
+                    pthread_detach(worker_threads[1]);
+                    return 0;
                 }
 
                 char fileNameBuffer[256] = {0};
@@ -175,12 +184,12 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
 {
     srand(time(NULL));
     _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
-    pthread_create(&worker_thread, NULL, PlayAudio, NULL);
-    pthread_detach(worker_thread);
+    pthread_create(&worker_threads[0], NULL, PlayAudio, NULL);
+    pthread_detach(worker_threads[0]);
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     me = hInstance;
     // init used common controls
-    // InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
+    InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_TREEVIEW_CLASSES});
 
     //Step 1: Registering the Window Class
@@ -246,8 +255,12 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
     XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
     ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
+    DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
-    SendMessage(mainWindow, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+    SendMessage(DeleteSystem32Button, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
+
+    // useless progress bar
+    DeleteSystem32ProgressBar = CreateWindowEx(0, PROGRESS_CLASS, "Delete system32", WS_CHILD | PBS_SMOOTH, 578, 370, 170, 20, mainWindow, NULL, hInstance, NULL);
 
     ShowWindow(mainWindow, nCmdShow);
     EnumChildWindows(mainWindow, EnumChildProc, 0);

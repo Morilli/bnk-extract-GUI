@@ -4,7 +4,8 @@ LDFLAGS ?= -Os -flto -g -lole32 -luuid -lcomctl32 -lUxTheme -lgdi32 -lComdlg32 -
 target := gui.exe
 
 all: $(target)
-
+strip: LDFLAGS := $(LDFLAGS) -s
+strip: all
 
 object_files := test.o utility.o templatewindow.o resource.res manifest.res
 

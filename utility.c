@@ -69,6 +69,19 @@ void ExtractSelectedItem(HWND parent, HTREEITEM item)
     CoTaskMemFree(selectedFolder);
 }
 
+void* FillProgressBar(void* _args)
+{
+    HWND progressbar = _args;
+    ShowWindow(progressbar, SW_SHOWNORMAL);
+    SendMessage(progressbar, PBM_SETRANGE, 0, MAKELONG(0, 5000));
+    for (int i = 0; i < 500; i++) {
+        SendMessage(progressbar, PBM_STEPIT, 0, 0);
+        Sleep(rand() % 100);
+    }
+
+    return NULL;
+}
+
 uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 {
     OggVorbis_File oggDataInfo;
