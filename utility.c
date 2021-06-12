@@ -111,22 +111,6 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData)
     return rawPcmDataFromOgg;
 }
 
-void* PlayAudio(__attribute__((unused)) void* _args)
-{
-    char* previous_oggData = NULL;
-    while (true) {
-        char* oggData;
-        int readBytes = 0;
-        do {
-            readBytes += read(worker_thread_pipe[0], &oggData + readBytes, sizeof(char*) - readBytes);
-        } while (readBytes != sizeof(char*));
-        PlaySound(NULL, NULL, 0); // cancel all playing sounds
-        free(previous_oggData);
-        PlaySound(oggData, me, SND_MEMORY | SND_ASYNC);
-        previous_oggData = oggData;
-    }
-}
-
 
 size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource)
 {

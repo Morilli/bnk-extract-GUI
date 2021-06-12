@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <dwmapi.h>
 
-extern HINSTANCE me;
 extern HWND treeview;
 extern int worker_thread_pipe[2];
 
@@ -22,8 +21,6 @@ void ExtractSelectedItem(HWND parent, HTREEITEM item);
 void* FillProgressBar(void* _args);
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
-
-void* PlayAudio(void* _args);
 
 size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource);
 int seek_func_callback(void* datasource, ogg_int64_t offset, int whence);

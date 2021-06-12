@@ -47,15 +47,14 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
 
 // global window variables
 const char g_szClassName[] = "bnk-extract GUI";
-HINSTANCE me;
+static HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
             DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 HWND treeview;
-pthread_t worker_threads[2];
-int worker_thread_pipe[2];
+// int worker_thread_pipe[2];
 
 
 // thanks stackoverflow https://stackoverflow.com/questions/35415636/win32-using-the-default-button-font-in-a-button
@@ -82,14 +81,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 if (selectedItem.lParam) {
                     ReadableBinaryData* oggData = (ReadableBinaryData*) selectedItem.lParam;
                     oggData->position = 0;
+                    static uint8_t* oldPcmData = NULL;
                     uint8_t* pcmData = WavFromOgg(oggData);
-                    if (!pcmData) {
-                        MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
+                    PlaySound(NULL, NULL, 0); // cancel all playing sounds
+                    free(oldPcmData);
+                    if (!pcmData) { // conversion failed, so assume it is already wav data (e.g. malzahar skin06 recall_leadin)
+                        PlaySound((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
+                        oldPcmData = NULL;
                     } else {
-                        int writtenBytes = 0;
-                        do {
-                            writtenBytes += write(worker_thread_pipe[1], &pcmData + writtenBytes, sizeof(char*) - writtenBytes);
-                        } while (writtenBytes != sizeof(char*));
+                        PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
+                        oldPcmData = pcmData;
                     }
                 }
 
@@ -154,8 +155,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         return 0;
                     }
                 } else if ((HWND) lParam == DeleteSystem32Button) {
-                    pthread_create(&worker_threads[1], NULL, FillProgressBar, DeleteSystem32ProgressBar);
-                    pthread_detach(worker_threads[1]);
+                    if (rand() % 100 == 0)
+                        MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
+                    pthread_t pid;
+                    pthread_create(&pid, NULL, FillProgressBar, DeleteSystem32ProgressBar);
+                    pthread_detach(pid);
                     return 0;
                 }
 
@@ -183,9 +187,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     srand(time(NULL));
-    _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
-    pthread_create(&worker_threads[0], NULL, PlayAudio, NULL);
-    pthread_detach(worker_threads[0]);
+    // _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     me = hInstance;
     // init used common controls
@@ -241,7 +243,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(mainWindow, 0, 230, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);
