@@ -15,16 +15,13 @@
 void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITEM parent)
 {
     TVINSERTSTRUCT newItemInfo = {
-        .hInsertAfter = TVI_LAST,
+        .hInsertAfter = TVI_SORT,
         .hParent = parent,
-        .item = ({TV_ITEM tvItem; if (element->oggData) {
-            ReadableBinaryData* data = calloc(1, sizeof(ReadableBinaryData));
-            data->data = element->oggData->data;
-            data->size = element->oggData->length;
+        .item = ({TV_ITEM tvItem; if (element->wemData) {
             tvItem = (TV_ITEM) {
                 .mask = TVIF_TEXT | TVIF_PARAM,
                 .pszText = element->string,
-                .lParam = (LPARAM) data
+                .lParam = (LPARAM) element->wemData
             };
         } else {
             tvItem = (TV_ITEM) {
@@ -35,7 +32,6 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
         tvItem; })
     };
 
-    free(element->oggData); // if we're not doing it here... where else would we
     HTREEITEM newItem = TreeView_InsertItem(Treeview, &newItemInfo);
     free(element->string);
 
@@ -51,7 +47,7 @@ static HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
-            DeleteSystem32Button;
+            SaveButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 HWND treeview;
 // int worker_thread_pipe[2];
@@ -78,28 +74,42 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
                 TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
-                if (selectedItem.lParam) {
-                    ReadableBinaryData* oggData = (ReadableBinaryData*) selectedItem.lParam;
-                    oggData->position = 0;
+                if (selectedItem.lParam && TreeView_GetParent(treeview, selectedItem.hItem)) {
+                    BinaryData* wemData = (BinaryData*) selectedItem.lParam;
+                    BinaryData* oggData = convert_audio(wemData);
+                    ReadableBinaryData readableOggData = {
+                        .data = oggData->data,
+                        .size = oggData->length
+                    };
                     static uint8_t* oldPcmData = NULL;
-                    uint8_t* pcmData = WavFromOgg(oggData);
+                    uint8_t* pcmData = WavFromOgg(&readableOggData);
                     PlaySound(NULL, NULL, 0); // cancel all playing sounds
                     free(oldPcmData);
                     if (!pcmData) { // conversion failed, so assume it is already wav data (e.g. malzahar skin06 recall_leadin)
                         PlaySound((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
-                        oldPcmData = NULL;
+                        oldPcmData = oggData->data;
                     } else {
                         PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
                         oldPcmData = pcmData;
+                        free(oggData->data);
                     }
+                    free(oggData);
                 }
 
                 return 0;
             } else if (((NMHDR*) lParam)->code == TVN_DELETEITEM) {
                 TVITEM toBeDeleted = ((NMTREEVIEW*) lParam)->itemOld;
                 if (toBeDeleted.lParam) {
-                    free((void*) ((ReadableBinaryData*) toBeDeleted.lParam)->data);
-                    free((ReadableBinaryData*) toBeDeleted.lParam);
+                    if (!TreeView_GetParent(treeview, toBeDeleted.hItem)) {
+                        IndexedDataList* wemDataList = (IndexedDataList*) toBeDeleted.lParam;
+                        printf("deleting list %p\n", wemDataList);
+                        for (uint32_t i = 0; i < wemDataList->length; i++) {
+                            free(wemDataList->objects[i].wemData->data);
+                            free(wemDataList->objects[i].wemData);
+                        }
+                        free(wemDataList->objects);
+                        free(wemDataList);
+                    }
                 }
                 return 0;
             }
@@ -122,10 +132,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     GetWindowText(AudioTextBox, audioPath, 255);
                     GetWindowText(EventsTextBox, eventsPath, 255);
                     char* bnk_extract_args[] = {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, "-vv", NULL};
-                    StringWithChildren* structuredWems = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
+                    WemInformation* structuredWems = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
                     if (structuredWems) {
-                        InsertStringToTreeview(treeview, structuredWems, TVI_ROOT);
+                        structuredWems->grouped_wems->wemData = (BinaryData*) structuredWems->sortedWemDataList;
+                        InsertStringToTreeview(treeview, structuredWems->grouped_wems, TVI_ROOT);
                         ShowWindow(treeview, SW_SHOWNORMAL);
+                        free(structuredWems->grouped_wems);
+                        free(structuredWems);
                     } else {
                         MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
                         "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
@@ -161,6 +174,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     pthread_create(&pid, NULL, FillProgressBar, DeleteSystem32ProgressBar);
                     pthread_detach(pid);
                     return 0;
+                } else if ((HWND) lParam == SaveButton) {
+                    HTREEITEM currentSelection = TreeView_GetSelection(treeview);
+                    if (currentSelection && !TreeView_GetParent(treeview, TreeView_GetSelection(treeview))) {
+                        SaveBnkOrWpk(hwnd, TreeView_GetSelection(treeview));
+                    }
+                    return 0;
                 }
 
                 char fileNameBuffer[256] = {0};
@@ -168,7 +187,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     .lStructSize = sizeof(OPENFILENAME),
                     .hwndOwner = mainWindow,
                     .lpstrFile = fileNameBuffer,
-                    .nMaxFile = 255
+                    .nMaxFile = 255,
+                    .Flags = OFN_FILEMUSTEXIST
                 };
                 if (GetOpenFileName(&fileNameInfo)) {
                     if ((HWND) lParam == BinFileSelectButton) SetWindowText(BinTextBox, fileNameBuffer);
@@ -243,7 +263,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(mainWindow, 0, 230, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);
@@ -257,6 +277,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
     XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
     ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
+    SaveButton = CreateWindowEx(0, "BUTTON", "Save bnk/wpk", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 530, 150, 130, 24, mainWindow, NULL, hInstance, NULL);
     DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(DeleteSystem32Button, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);

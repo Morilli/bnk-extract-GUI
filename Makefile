@@ -1,12 +1,14 @@
 
 CFLAGS ?= -std=gnu18 -Wall -Wextra -Os -flto
-LDFLAGS ?= -Os -flto -g -lole32 -luuid -lcomctl32 -lUxTheme -lgdi32 -lComdlg32 -lWinmm -lvorbisfile -logg -lvorbis libbnk-extract.a -static -Wl,--gc-sections
+CXXFLAGS ?= -std=c++17 -Wall -Wextra
+LDFLAGS ?= -Os -flto -g -lole32 -luuid -lcomctl32 -lgdi32 -lComdlg32 -lWinmm -static -Wl,--gc-sections
 target := gui.exe
 
 all: $(target)
 strip: LDFLAGS := $(LDFLAGS) -s
 strip: all
 
+libs := libs/libbnk-extract.a libs/libvorbis.a libs/libogg.a libs/libvorbisfile.a
 object_files := test.o utility.o templatewindow.o resource.res manifest.res
 
 %.res : %.rc
@@ -17,8 +19,8 @@ resource.res: resource.h icon.ico
 manifest.res: gui.exe.manifest
 
 
-$(target): $(object_files) libbnk-extract.a
-	$(CXX) $(CFLAGS) $^ $(LDFLAGS) -o $@
+$(target): $(object_files) $(libs)
+	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
 
 
 clean:

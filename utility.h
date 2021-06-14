@@ -4,6 +4,13 @@
 #include <vorbis/vorbisfile.h>
 #include <stdint.h>
 #include <dwmapi.h>
+#include "list.h"
+
+typedef struct {
+    uint32_t id;
+    BinaryData* wemData;
+} IndexedData;
+typedef LIST(IndexedData) IndexedDataList;
 
 extern HWND treeview;
 extern int worker_thread_pipe[2];
@@ -15,6 +22,8 @@ typedef struct {
 } ReadableBinaryData;
 
 extern ov_callbacks oggCallbacks;
+
+void SaveBnkOrWpk(HWND window, HTREEITEM rootItem);
 
 void ExtractSelectedItem(HWND parent, HTREEITEM item);
 
