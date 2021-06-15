@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <windowsx.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <dwmapi.h>
@@ -7,6 +8,7 @@
 
 #include "resource.h"
 #include "templatewindow.h"
+#include "IDropTarget.h"
 #include "list.h"
 #include "utility.h"
 #include "api.h"
@@ -50,7 +52,6 @@ static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, 
             SaveButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 HWND treeview;
-// int worker_thread_pipe[2];
 
 
 // thanks stackoverflow https://stackoverflow.com/questions/35415636/win32-using-the-default-button-font-in-a-button
@@ -74,7 +75,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
                 TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
-                if (selectedItem.lParam && TreeView_GetParent(treeview, selectedItem.hItem)) {
+                bool isRootItem = !TreeView_GetParent(treeview, selectedItem.hItem);
+                if (selectedItem.lParam && !isRootItem) {
                     BinaryData* wemData = (BinaryData*) selectedItem.lParam;
                     BinaryData* oggData = convert_audio(wemData);
                     ReadableBinaryData readableOggData = {
@@ -96,28 +98,28 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     free(oggData);
                 }
 
+                // disable the save button if the selected item is not a root item
+                Button_Enable(SaveButton, isRootItem);
+
                 return 0;
             } else if (((NMHDR*) lParam)->code == TVN_DELETEITEM) {
                 TVITEM toBeDeleted = ((NMTREEVIEW*) lParam)->itemOld;
-                if (toBeDeleted.lParam) {
-                    if (!TreeView_GetParent(treeview, toBeDeleted.hItem)) {
-                        IndexedDataList* wemDataList = (IndexedDataList*) toBeDeleted.lParam;
-                        printf("deleting list %p\n", wemDataList);
-                        for (uint32_t i = 0; i < wemDataList->length; i++) {
-                            free(wemDataList->objects[i].wemData->data);
-                            free(wemDataList->objects[i].wemData);
-                        }
-                        free(wemDataList->objects);
-                        free(wemDataList);
+                if (toBeDeleted.lParam && !TreeView_GetParent(treeview, toBeDeleted.hItem)) {
+                    IndexedDataList* wemDataList = (IndexedDataList*) toBeDeleted.lParam;
+                    printf("deleting list %p\n", wemDataList);
+                    for (uint32_t i = 0; i < wemDataList->length; i++) {
+                        free(wemDataList->objects[i].wemData->data);
+                        free(wemDataList->objects[i].wemData);
                     }
+                    free(wemDataList->objects);
+                    free(wemDataList);
                 }
                 return 0;
             }
             break;
         }
         case WM_CLOSE: {
-            MessageBox(hwnd, "Fenster wird geschlossen...", NULL, MB_ICONQUESTION);
-            CoUninitialize();
+            OleUninitialize();
             DestroyWindow(hwnd);
             return 0;
         }
@@ -207,8 +209,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     srand(time(NULL));
-    // _pipe(worker_thread_pipe, sizeof(void*), O_BINARY);
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    OleInitialize(NULL);
     me = hInstance;
     // init used common controls
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
@@ -277,7 +278,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
     XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
     ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
-    SaveButton = CreateWindowEx(0, "BUTTON", "Save bnk/wpk", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 530, 150, 130, 24, mainWindow, NULL, hInstance, NULL);
+    SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 530, 150, 130, 24, mainWindow, NULL, hInstance, NULL);
     DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(DeleteSystem32Button, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
@@ -288,6 +289,10 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     ShowWindow(mainWindow, nCmdShow);
     EnumChildWindows(mainWindow, EnumChildProc, 0);
     UpdateWindow(mainWindow);
+
+    IDropTarget* dropTargetImplementation = CreateIDropTarget(treeview);
+    RegisterDragDrop(mainWindow, dropTargetImplementation);
+    dropTargetImplementation->lpVtbl->Release(dropTargetImplementation);
 
     // Step 3: The Message Loop
     MSG Msg;

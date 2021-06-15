@@ -35,4 +35,6 @@ size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource
 int seek_func_callback(void* datasource, ogg_int64_t offset, int whence);
 long tell_func_callback(void* datasource);
 
+char* rstrstr(const char* haystack, const char* needle);
+
 #endif

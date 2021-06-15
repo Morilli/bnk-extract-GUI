@@ -169,7 +169,7 @@ void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
     _swprintf(current_output_path, L"%s/", output_path);
     mbstowcs(current_output_path + wcslen(output_path) + 1, tvItem.pszText, strlen(tvItem.pszText) + 1);
 
-    if (tvItem.lParam && !isRootItem) { // item is a child item, has ogg data associated with it
+    if (tvItem.lParam && !isRootItem) { // item is a child item, has wem data associated with it
         FILE* output_file = _wfopen(current_output_path, L"wb");
         if (!output_file) {
             MessageBoxW(NULL, L"Failed to open an output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
@@ -294,3 +294,21 @@ ov_callbacks oggCallbacks = {
     .tell_func = tell_func_callback,
     .close_func = NULL
 };
+
+// https://stackoverflow.com/questions/1634359/is-there-a-reverse-function-for-strstr
+char* rstrstr(const char* haystack, const char* needle)
+{
+    if (*needle == '\0')
+        return (char*) haystack;
+
+    char* result = NULL;
+    while (true) {
+        char* p = strstr(haystack, needle);
+        if (p == NULL)
+            break;
+        result = p;
+        haystack = p + 1;
+    }
+
+    return result;
+}
