@@ -19,19 +19,11 @@ void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITE
     TVINSERTSTRUCT newItemInfo = {
         .hInsertAfter = TVI_SORT,
         .hParent = parent,
-        .item = ({TV_ITEM tvItem; if (element->wemData) {
-            tvItem = (TV_ITEM) {
-                .mask = TVIF_TEXT | TVIF_PARAM,
-                .pszText = element->string,
-                .lParam = (LPARAM) element->wemData
-            };
-        } else {
-            tvItem = (TV_ITEM) {
-                .mask = TVIF_TEXT,
-                .pszText = element->string
-            };
+        .item = {
+            .mask = TVIF_TEXT | TVIF_PARAM,
+            .pszText = element->string,
+            .lParam = (LPARAM) element->wemData
         }
-        tvItem; })
     };
 
     HTREEITEM newItem = TreeView_InsertItem(Treeview, &newItemInfo);
@@ -72,7 +64,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             wParam &= MAKELONG(UIS_SET, UISF_HIDEFOCUS); // force UISF_HIDEFOCUS to be 1
             break;
         case WM_NOTIFY: {
-            // printf("got wm_notify. code is %d\n", ((NMHDR*) lParam)->code);
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
                 TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
                 bool isRootItem = !TreeView_GetParent(treeview, selectedItem.hItem);
@@ -129,10 +120,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_COMMAND:
             if (lParam && HIWORD(wParam) == BN_CLICKED) {
                 if ((HWND) lParam == GoButton) {
-                    char binPath[256], audioPath[256], eventsPath[256];
-                    GetWindowText(BinTextBox, binPath, 255);
-                    GetWindowText(AudioTextBox, audioPath, 255);
-                    GetWindowText(EventsTextBox, eventsPath, 255);
+                    char binPath[GetWindowTextLength(BinTextBox)+1];
+                    char audioPath[GetWindowTextLength(AudioTextBox)+1];
+                    char eventsPath[GetWindowTextLength(EventsTextBox)+1];
+                    GetWindowText(BinTextBox, binPath, sizeof(binPath));
+                    GetWindowText(AudioTextBox, audioPath, sizeof(audioPath));
+                    GetWindowText(EventsTextBox, eventsPath, sizeof(eventsPath));
                     char* bnk_extract_args[] = {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, "-vv", NULL};
                     WemInformation* structuredWems = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
                     if (structuredWems) {
@@ -164,11 +157,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                             .dwFlags = TDF_ALLOW_DIALOG_CANCELLATION
                         };
                         TaskDialogIndirect(&taskDialogConfig, NULL, NULL, NULL);
-                        return 0;
                     } else {
                         ExtractSelectedItem(hwnd, selectedItem);
-                        return 0;
                     }
+                    return 0;
                 } else if ((HWND) lParam == DeleteSystem32Button) {
                     if (rand() % 100 == 0)
                         MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
@@ -178,8 +170,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     return 0;
                 } else if ((HWND) lParam == SaveButton) {
                     HTREEITEM currentSelection = TreeView_GetSelection(treeview);
-                    if (currentSelection && !TreeView_GetParent(treeview, TreeView_GetSelection(treeview))) {
-                        SaveBnkOrWpk(hwnd, TreeView_GetSelection(treeview));
+                    if (currentSelection && !TreeView_GetParent(treeview, currentSelection)) {
+                        SaveBnkOrWpk(hwnd, currentSelection);
                     }
                     return 0;
                 }
@@ -206,7 +198,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevInstance, __attribute__((unused)) LPSTR lpCmdLine, int nCmdShow)
 {
     srand(time(NULL));
     OleInitialize(NULL);
@@ -220,17 +212,14 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     int iconsm_size  = GetSystemMetrics(SM_CXSMICON);
     WNDCLASSEX windowClass = {
         .cbSize        = sizeof(WNDCLASSEX),
-        .style         = 0,
         .lpfnWndProc   = WndProc,
-        .cbClsExtra    = 0,
-        .cbWndExtra    = 0,
         .hInstance     = hInstance,
         .hIcon         = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, icon_size, icon_size, 0),
         .hIconSm       = LoadImage(hInstance, MAKEINTRESOURCE(IDI_MYICON), IMAGE_ICON, iconsm_size, iconsm_size, 0),
         .hCursor       = LoadCursor(NULL, IDC_ARROW),
         .hbrBackground = (HBRUSH)(COLOR_WINDOWFRAME),
         .lpszMenuName  = MAKEINTRESOURCE(IDR_MYMENU),
-        .lpszClassName = hInstance ? g_szClassName : &lpCmdLine[10]
+        .lpszClassName = g_szClassName
     };
     if (!RegisterClassEx(&windowClass)) {
         MessageBox(NULL, "Window Registration Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
@@ -249,14 +238,14 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     rect.bottom = y + height;
     UINT style = WS_OVERLAPPEDWINDOW;
     AdjustWindowRectEx(&rect, style, 0, 0);
-    char window_name[] = "high quality gui uwu";
     mainWindow = CreateWindowEx(
-        WS_EX_CLIENTEDGE | WS_EX_LAYERED,
+        WS_EX_LAYERED,
         g_szClassName,
-        window_name,
+        "high quality gui uwu",
         style,
         CW_USEDEFAULT, CW_USEDEFAULT, rect.right-rect.left, rect.bottom-rect.top,
-        NULL, NULL, hInstance, NULL);
+        NULL, NULL, hInstance, NULL
+    );
     if (!mainWindow) {
         MessageBox(NULL, "Window Creation Failed!", "Error!", MB_ICONEXCLAMATION | MB_OK);
         return 0;
@@ -296,12 +285,12 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
 
     // Step 3: The Message Loop
     MSG Msg;
-    while(GetMessage(&Msg, NULL, 0, 0) > 0)
-    {
+    while (GetMessage(&Msg, NULL, 0, 0) > 0) {
         if (!IsDialogMessage(mainWindow, &Msg)) {
             TranslateMessage(&Msg);
             DispatchMessage(&Msg);
         }
     }
+
     return Msg.wParam;
 }

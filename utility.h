@@ -1,4 +1,4 @@
-#ifndef UTLITY_H
+#ifndef UTILITY_H
 #define UTILITY_H
 
 #include <vorbis/vorbisfile.h>
