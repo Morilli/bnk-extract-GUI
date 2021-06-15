@@ -41,7 +41,7 @@ static HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
-            SaveButton, DeleteSystem32Button;
+            SaveButton, ReplaceButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 HWND treeview;
 
@@ -67,7 +67,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (((NMHDR*) lParam)->code == TVN_SELCHANGED) {
                 TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
                 bool isRootItem = !TreeView_GetParent(treeview, selectedItem.hItem);
-                if (selectedItem.lParam && !isRootItem) {
+                bool isChildItem = selectedItem.lParam && !isRootItem;
+                if (isChildItem) { // is a child item (with wem data)
                     BinaryData* wemData = (BinaryData*) selectedItem.lParam;
                     BinaryData* oggData = convert_audio(wemData);
                     ReadableBinaryData readableOggData = {
@@ -89,8 +90,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     free(oggData);
                 }
 
-                // disable the save button if the selected item is not a root item
+                // Set button states based on which item was selected
                 Button_Enable(SaveButton, isRootItem);
+                Button_Enable(ReplaceButton, isChildItem);
 
                 return 0;
             } else if (((NMHDR*) lParam)->code == TVN_DELETEITEM) {
@@ -138,10 +140,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
                         "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
                     }
-                    return 0;
                 } else if ((HWND) lParam == XButton) {
+                    // Button_Enable(ExtractButton, false);
+                    Button_Enable(SaveButton, false);
+                    Button_Enable(ReplaceButton, false);
                     TreeView_DeleteAllItems(treeview);
-                    return 0;
                 } else if ((HWND) lParam == ExtractButton) {
                     HTREEITEM selectedItem = TreeView_GetSelection(treeview);
                     if (!selectedItem) {
@@ -160,36 +163,33 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     } else {
                         ExtractSelectedItem(hwnd, selectedItem);
                     }
-                    return 0;
                 } else if ((HWND) lParam == DeleteSystem32Button) {
                     if (rand() % 100 == 0)
                         MessageBox(hwnd, "sorry your computer has virus", "guten tag", MB_OK | MB_ICONERROR);
                     pthread_t pid;
                     pthread_create(&pid, NULL, FillProgressBar, DeleteSystem32ProgressBar);
                     pthread_detach(pid);
-                    return 0;
                 } else if ((HWND) lParam == SaveButton) {
                     HTREEITEM currentSelection = TreeView_GetSelection(treeview);
-                    if (currentSelection && !TreeView_GetParent(treeview, currentSelection)) {
-                        SaveBnkOrWpk(hwnd, currentSelection);
+                    SaveBnkOrWpk(hwnd, currentSelection);
+                } else if ((HWND) lParam == ReplaceButton) {
+                    HTREEITEM currentSelection = TreeView_GetSelection(treeview);
+                    ReplaceWemData(hwnd, currentSelection);
+                } else {
+                    char fileNameBuffer[256] = {0};
+                    OPENFILENAME fileNameInfo = {
+                        .lStructSize = sizeof(OPENFILENAME),
+                        .hwndOwner = mainWindow,
+                        .lpstrFile = fileNameBuffer,
+                        .nMaxFile = 255,
+                        .Flags = OFN_FILEMUSTEXIST
+                    };
+                    if (GetOpenFileName(&fileNameInfo)) {
+                        if ((HWND) lParam == BinFileSelectButton) SetWindowText(BinTextBox, fileNameBuffer);
+                        if ((HWND) lParam == AudioFileSelectButton) SetWindowText(AudioTextBox, fileNameBuffer);
+                        if ((HWND) lParam == EventsFileSelectButton) SetWindowText(EventsTextBox, fileNameBuffer);
                     }
-                    return 0;
                 }
-
-                char fileNameBuffer[256] = {0};
-                OPENFILENAME fileNameInfo = {
-                    .lStructSize = sizeof(OPENFILENAME),
-                    .hwndOwner = mainWindow,
-                    .lpstrFile = fileNameBuffer,
-                    .nMaxFile = 255,
-                    .Flags = OFN_FILEMUSTEXIST
-                };
-                if (GetOpenFileName(&fileNameInfo)) {
-                    if ((HWND) lParam == BinFileSelectButton) SetWindowText(BinTextBox, fileNameBuffer);
-                    if ((HWND) lParam == AudioFileSelectButton) SetWindowText(AudioTextBox, fileNameBuffer);
-                    if ((HWND) lParam == EventsFileSelectButton) SetWindowText(EventsTextBox, fileNameBuffer);
-                }
-
                 return 0;
             }
             break;
@@ -227,23 +227,12 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     }
 
     // Step 2: Creating the Window
-    int width = 800;
-    int height = 500;
-    int x = CW_USEDEFAULT;
-    int y = CW_USEDEFAULT;
-    RECT rect;
-    rect.left   = x;
-    rect.top    = y;
-    rect.right  = x + width;
-    rect.bottom = y + height;
-    UINT style = WS_OVERLAPPEDWINDOW;
-    AdjustWindowRectEx(&rect, style, 0, 0);
     mainWindow = CreateWindowEx(
         WS_EX_LAYERED,
         g_szClassName,
         "high quality gui uwu",
-        style,
-        CW_USEDEFAULT, CW_USEDEFAULT, rect.right-rect.left, rect.bottom-rect.top,
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 525,
         NULL, NULL, hInstance, NULL
     );
     if (!mainWindow) {
@@ -253,7 +242,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(mainWindow, 0, 230, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 500, 380, mainWindow, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 480, 380, mainWindow, NULL, hInstance, NULL);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);
@@ -267,7 +256,8 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 28, 130, 24, mainWindow, NULL, hInstance, NULL);
     XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
     ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
-    SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 530, 150, 130, 24, mainWindow, NULL, hInstance, NULL);
+    ReplaceButton = CreateWindowEx(0, "BUTTON", "Replace wem data", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 600, 140, 130, 24, mainWindow, NULL, hInstance, NULL);
+    SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 600, 200, 130, 24, mainWindow, NULL, hInstance, NULL);
     DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(DeleteSystem32Button, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);

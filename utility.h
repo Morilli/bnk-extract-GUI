@@ -25,6 +25,8 @@ extern ov_callbacks oggCallbacks;
 
 void SaveBnkOrWpk(HWND window, HTREEITEM rootItem);
 
+void ReplaceWemData(HWND window, HTREEITEM item);
+
 void ExtractSelectedItem(HWND parent, HTREEITEM item);
 
 void* FillProgressBar(void* _args);

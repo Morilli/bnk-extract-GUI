@@ -150,6 +150,37 @@ void SaveBnkOrWpk(HWND window, HTREEITEM root)
     }
 }
 
+void ReplaceWemData(HWND window, HTREEITEM item)
+{
+    TVITEM tvItem = {
+        .mask = TVIF_PARAM,
+        .hItem = item
+    };
+    TreeView_GetItem(treeview, &tvItem);
+
+    char fileNameBuffer[256] = {0};
+    OPENFILENAME fileNameInfo = {
+        .lStructSize = sizeof(OPENFILENAME),
+        .hwndOwner = window,
+        .lpstrFile = fileNameBuffer,
+        .nMaxFile = 255,
+        .Flags = OFN_FILEMUSTEXIST,
+        .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
+    };
+    BinaryData* wemData = (BinaryData*) tvItem.lParam;
+    if (GetOpenFileName(&fileNameInfo)) {
+        FILE* newDataFile = fopen(fileNameBuffer, "rb");
+        if (!newDataFile) return;
+        fseek(newDataFile, 0, SEEK_END);
+        wemData->length = ftell(newDataFile);
+        free(wemData->data);
+        wemData->data = malloc(wemData->length);
+        rewind(newDataFile);
+        fread(wemData->data, wemData->length, 1, newDataFile);
+        fclose(newDataFile);
+    }
+}
+
 void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
 {
     // check whether this is a "global" root item. If so, do not use its (path-like) label text and abuse the fact "//" is equivalent to "/"
