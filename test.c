@@ -9,9 +9,7 @@
 #include "resource.h"
 #include "templatewindow.h"
 #include "IDropTarget.h"
-#include "list.h"
 #include "utility.h"
-#include "api.h"
 
 
 void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITEM parent)
@@ -70,7 +68,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 bool isChildItem = selectedItem.lParam && !isRootItem;
                 if (isChildItem) { // is a child item (with wem data)
                     BinaryData* wemData = (BinaryData*) selectedItem.lParam;
-                    BinaryData* oggData = convert_audio(wemData);
+                    BinaryData* oggData = WemToOgg(wemData);
                     ReadableBinaryData readableOggData = {
                         .data = oggData->data,
                         .size = oggData->length

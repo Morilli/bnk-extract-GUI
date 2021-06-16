@@ -1,13 +1,56 @@
+#define OV_EXCLUDE_STATIC_CALLBACKS
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <vorbis/vorbisfile.h>
 #include <windows.h>
 #include <shlobj.h>
 #include <direct.h>
 #include <dwmapi.h>
 
 #include "utility.h"
+#include "vorbis/vorbisfile.h"
+
+static size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource)
+{
+    ReadableBinaryData* source = datasource;
+    size_t total_bytes = size * nmemb;
+
+    if (source->size < source->position + total_bytes) {
+        total_bytes = source->size - source->position;
+    }
+
+    memcpy(ptr, source->data + source->position, total_bytes);
+
+    source->position += total_bytes;
+    return total_bytes;
+}
+
+static int seek_func_callback(void* datasource, ogg_int64_t offset, int whence)
+{
+    ReadableBinaryData* source = datasource;
+
+    ssize_t requested_position = offset;
+    if (whence == SEEK_CUR) requested_position += source->position;
+    if (whence == SEEK_END) requested_position += source->size;
+    if ((size_t) requested_position > source->size || requested_position < 0) return -1;
+
+    source->position = requested_position;
+    return 0;
+}
+
+static long tell_func_callback(void* datasource)
+{
+    ReadableBinaryData* source = datasource;
+
+    return source->position;
+}
+
+static const ov_callbacks oggCallbacks = {
+    .read_func = read_func_callback,
+    .seek_func = seek_func_callback,
+    .tell_func = tell_func_callback,
+    .close_func = NULL
+};
 
 // note: ONLY DO THIS WITH POWERS OF 2
 // clamps number to the next higher number that devides through this power of two, e.g. (1234, 8) -> 1240
@@ -282,49 +325,6 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 
     return rawPcmDataFromOgg;
 }
-
-
-size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource)
-{
-    ReadableBinaryData* source = datasource;
-    size_t total_bytes = size * nmemb;
-
-    if (source->size < source->position + total_bytes) {
-        total_bytes = source->size - source->position;
-    }
-
-    memcpy(ptr, source->data + source->position, total_bytes);
-
-    source->position += total_bytes;
-    return total_bytes;
-}
-
-int seek_func_callback(void* datasource, ogg_int64_t offset, int whence)
-{
-    ReadableBinaryData* source = datasource;
-
-    ssize_t requested_position = offset;
-    if (whence == SEEK_CUR) requested_position += source->position;
-    if (whence == SEEK_END) requested_position += source->size;
-    if ((size_t) requested_position > source->size || requested_position < 0) return -1;
-
-    source->position = requested_position;
-    return 0;
-}
-
-long tell_func_callback(void* datasource)
-{
-    ReadableBinaryData* source = datasource;
-
-    return source->position;
-}
-
-ov_callbacks oggCallbacks = {
-    .read_func = read_func_callback,
-    .seek_func = seek_func_callback,
-    .tell_func = tell_func_callback,
-    .close_func = NULL
-};
 
 // https://stackoverflow.com/questions/1634359/is-there-a-reverse-function-for-strstr
 char* rstrstr(const char* haystack, const char* needle)

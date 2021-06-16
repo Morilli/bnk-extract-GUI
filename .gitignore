@@ -4,3 +4,6 @@
 *.o
 *.res
 gui.exe
+.prerequisites_built
+build/
+libs/

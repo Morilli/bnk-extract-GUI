@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <shlobj.h>
+
 #include "utility.h"
 
 typedef struct InternalIDropTarget {
