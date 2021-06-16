@@ -29,9 +29,9 @@ object_files := test.o utility.o IDropTarget.o resource.res manifest.res
 
 %.res : %.rc
 	windres --output-format=coff $< $@
-test.o: resource.h templatewindow.h utility.h
+test.o: IDropTarget.h resource.h utility.h
 utility.o: utility.h
-IDropTarget.o: IDropTarget.h
+IDropTarget.o: utility.h
 resource.res: resource.h icon.ico
 manifest.res: gui.exe.manifest
 

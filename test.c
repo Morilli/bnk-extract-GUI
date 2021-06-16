@@ -1,13 +1,13 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include <dwmapi.h>
 #include <time.h>
 #include <pthread.h>
 
 #include "resource.h"
-#include "templatewindow.h"
 #include "IDropTarget.h"
 #include "utility.h"
 
