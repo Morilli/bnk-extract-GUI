@@ -8,6 +8,7 @@
 #include <dwmapi.h>
 
 #include "utility.h"
+#include "bnk-extract/api.h"
 #include "vorbis/vorbisfile.h"
 
 static size_t read_func_callback(void* ptr, size_t size, size_t nmemb, void* datasource)
@@ -60,7 +61,7 @@ static const ov_callbacks oggCallbacks = {
 // gives the distance to the next lower number that devides through this power of two, e.g. (1234, 8) -> 2
 #define diff_from_clamp(number, clamp) ((number+clamp-1) & (clamp-1))
 
-void write_wpk_file(IndexedDataList* wemFiles, char* outputPath)
+void write_wpk_file(AudioDataList* wemFiles, char* outputPath)
 {
     const int clamp = 8;
     FILE* wpk_file = fopen(outputPath, "wb");
@@ -84,7 +85,7 @@ void write_wpk_file(IndexedDataList* wemFiles, char* outputPath)
         // save offset to fill in the offset section later
         add_object(&offset_list, &(uint32_t) {ftell(wpk_file)});
         fseek(wpk_file, 4, SEEK_CUR);
-        fwrite(&wemFiles->objects[i].wemData->length, 4, 1, wpk_file);
+        fwrite(&wemFiles->objects[i].length, 4, 1, wpk_file);
         sprintf(filename_string, "%u.wem", wemFiles->objects[i].id);
         int filename_string_length = strlen(filename_string);
         fwrite(&filename_string_length, 4, 1, wpk_file);
@@ -103,19 +104,19 @@ void write_wpk_file(IndexedDataList* wemFiles, char* outputPath)
 
         // seek to the written offset, update the offset variable for further use and write data offset
         fseek(wpk_file, offset_list.objects[i], SEEK_SET);
-        offset_list.objects[i] = i == 0 ? start_data_offset : clamp_int(offset_list.objects[i-1] + wemFiles->objects[i-1].wemData->length, clamp);
+        offset_list.objects[i] = i == 0 ? start_data_offset : clamp_int(offset_list.objects[i-1] + wemFiles->objects[i-1].length, clamp);
         fwrite(&offset_list.objects[i], 4, 1, wpk_file);
 
         // seek to written data offset and write data
         fseek(wpk_file, offset_list.objects[i], SEEK_SET);
-        fwrite(wemFiles->objects[i].wemData->data, wemFiles->objects[i].wemData->length, 1, wpk_file);
+        fwrite(wemFiles->objects[i].data, wemFiles->objects[i].length, 1, wpk_file);
     }
 
     fclose(wpk_file);
     free(offset_list.objects);
 }
 
-void write_bnk_file(IndexedDataList* wemFiles, char* outputPath)
+void write_bnk_file(AudioDataList* wemFiles, char* outputPath)
 {
     const int clamp = 16;
     const uint32_t version = 0x86; // TODO FIXME this should be taken from the original source file
@@ -142,19 +143,19 @@ void write_bnk_file(IndexedDataList* wemFiles, char* outputPath)
     uint32_list offset_list;
     initialize_list_size(&offset_list, wemFiles->length);
     for (uint32_t i = 0; i < wemFiles->length; i++) {
-        offset_list.objects[i] = i == 0 ? 0 : offset_list.objects[i-1] + wemFiles->objects[i-1].wemData->length;
+        offset_list.objects[i] = i == 0 ? 0 : offset_list.objects[i-1] + wemFiles->objects[i-1].length;
         offset_list.objects[i] += diff_to_clamp(offset_list.objects[i] + initial_clamp_offset, clamp);
         fwrite(&wemFiles->objects[i].id, 4, 1, bnk_file);
         fwrite(&offset_list.objects[i], 4, 1, bnk_file);
-        fwrite(&wemFiles->objects[i].wemData->length, 4, 1, bnk_file);
+        fwrite(&wemFiles->objects[i].length, 4, 1, bnk_file);
     }
 
     // write DATA section
     fwrite("DATA", 4, 1, bnk_file);
-    fwrite(&(uint32_t) {offset_list.objects[wemFiles->length-1] + wemFiles->objects[wemFiles->length-1].wemData->length}, 4, 1, bnk_file);
+    fwrite(&(uint32_t) {offset_list.objects[wemFiles->length-1] + wemFiles->objects[wemFiles->length-1].length}, 4, 1, bnk_file);
     for (uint32_t i = 0; i < wemFiles->length; i++) {
         fseek(bnk_file, diff_to_clamp(ftell(bnk_file), clamp), SEEK_CUR);
-        fwrite(wemFiles->objects[i].wemData->data, wemFiles->objects[i].wemData->length, 1, bnk_file);
+        fwrite(wemFiles->objects[i].data, wemFiles->objects[i].length, 1, bnk_file);
     }
 
     fclose(bnk_file);
@@ -185,9 +186,9 @@ void SaveBnkOrWpk(HWND window, HTREEITEM root)
         char* selectedFile = fileNameInfo.lpstrFile;
         printf("selceted file: \"%s\"\n", selectedFile);
         if (strstr(selectedFile, ".wpk")) {
-            write_wpk_file((IndexedDataList*) tvItem.lParam, selectedFile);
+            write_wpk_file((AudioDataList*) tvItem.lParam, selectedFile);
         } else {
-            write_bnk_file((IndexedDataList*) tvItem.lParam, selectedFile);
+            write_bnk_file((AudioDataList*) tvItem.lParam, selectedFile);
         }
         // TODO check if .wpk or .bnk was selected, and do something if neither was
     }
@@ -210,7 +211,7 @@ void ReplaceWemData(HWND window, HTREEITEM item)
         .Flags = OFN_FILEMUSTEXIST,
         .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
     };
-    BinaryData* wemData = (BinaryData*) tvItem.lParam;
+    AudioData* wemData = (AudioData*) tvItem.lParam;
     if (GetOpenFileName(&fileNameInfo)) {
         FILE* newDataFile = fopen(fileNameBuffer, "rb");
         if (!newDataFile) return;
@@ -249,7 +250,8 @@ void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
             MessageBoxW(NULL, L"Failed to open an output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
             return;
         }
-        fwrite(((BinaryData*) tvItem.lParam)->data, ((BinaryData*) tvItem.lParam)->length, 1, output_file);
+        AudioData* wemData = (AudioData*) tvItem.lParam;
+        fwrite(wemData->data, wemData->length, 1, output_file);
         fclose(output_file);
     } else if (tvItem.cChildren > 0) { // item is a parent item, so extract all children
         // note that cChildren > 0 *should* always be true here

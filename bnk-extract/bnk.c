@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 
 #include "defs.h"
 #include "bin.h"
 #include "extract.h"
-#include "api.h"
+#include "static_list.h"
 
 struct BNKFileEntry {
     uint32_t file_id;
@@ -68,7 +68,7 @@ int parse_bnk_file_entries(FILE* bnk_file, struct BNKFile* bnkfile)
     return 0;
 }
 
-WemInformation* extract_bnk_file(char* bnk_path, StringHashes* string_hashes, char* output_path, bool wems_only, bool oggs_only)
+WemInformation* parse_audio_bnk_file(char* bnk_path, StringHashes* string_hashes)
 {
     FILE* bnk_file = fopen(bnk_path, "rb");
     if (!bnk_file) {
@@ -83,19 +83,20 @@ WemInformation* extract_bnk_file(char* bnk_path, StringHashes* string_hashes, ch
     }
     fclose(bnk_file);
 
-    AudioDataList audio_data_list;
-    initialize_list_size(&audio_data_list, bnkfile.length);
+    WemInformation* wem_information = malloc(sizeof(WemInformation));
+    wem_information->sortedWemDataList = malloc(sizeof(AudioDataList));
+    initialize_static_list(wem_information->sortedWemDataList, bnkfile.length);
     for (uint32_t i = 0; i < bnkfile.length; i++) {
-        add_object(&audio_data_list, (&(AudioData) {.id = bnkfile.entries[i].file_id, .data = {.length = bnkfile.entries[i].length, .data = bnkfile.entries[i].data}}));
+        wem_information->sortedWemDataList->objects[i] = (AudioData) {
+            .id = bnkfile.entries[i].file_id,
+            .length = bnkfile.entries[i].length,
+            .data = bnkfile.entries[i].data
+        };
     }
 
-    WemInformation* grouped_wems = extract_all_audio(output_path, &audio_data_list, string_hashes, wems_only, oggs_only);
-
-    for (uint32_t i = 0; i < bnkfile.length; i++) {
-        // free(bnkfile.entries[i].data);
-    }
     free(bnkfile.entries);
-    free(audio_data_list.objects);
 
-    return grouped_wems;
+    wem_information->grouped_wems = group_wems(wem_information->sortedWemDataList, string_hashes);
+
+    return wem_information;
 }

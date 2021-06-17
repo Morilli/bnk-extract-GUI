@@ -1,9 +1,9 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include "defs.h"
+#include "gnu_minmax.h"
 
 #define LIST(type) struct { \
     uint32_t length; \

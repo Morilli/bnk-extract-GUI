@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <assert.h>
 #include <string.h>
 
@@ -8,7 +8,6 @@
 #include "bin.h"
 #include "bnk.h"
 #include "wpk.h"
-#include "api.h"
 
 int VERBOSE = 0;
 
@@ -150,7 +149,7 @@ int read_random_container_object(FILE* bnk_file, uint32_t object_length, RandomC
     dprintf("sound object id amount: %u\n", new_random_container_object.sound_id_amount);
     if (new_random_container_object.sound_id_amount > 100) {
         eprintf("Would have allocated %u bytes. That can't be right. (ERROR btw)\n", new_random_container_object.sound_id_amount * 4);
-        exit(EXIT_FAILURE);
+        return -1;
     }
     new_random_container_object.sound_ids = malloc(new_random_container_object.sound_id_amount * 4);
     assert(fread(new_random_container_object.sound_ids, 4, new_random_container_object.sound_id_amount, bnk_file) == new_random_container_object.sound_id_amount);
@@ -259,7 +258,7 @@ int read_music_track_object(FILE* bnk_file, uint32_t object_length, MusicTrackSe
 }
 
 
-int parse_bnk_file(char* path, SoundSection* sounds, EventActionSection* event_actions, EventSection* events, RandomContainerSection* random_containers, MusicContainerSection* music_segments, MusicTrackSection* music_tracks, MusicContainerSection* music_playlists)
+int parse_event_bnk_file(char* path, SoundSection* sounds, EventActionSection* event_actions, EventSection* events, RandomContainerSection* random_containers, MusicContainerSection* music_segments, MusicTrackSection* music_tracks, MusicContainerSection* music_playlists)
 {
     FILE* bnk_file = fopen(path, "rb");
     if (!bnk_file) {
@@ -356,19 +355,16 @@ WemInformation* bnk_extract(int argc, char* argv[])
 {
     if (argc < 2) {
         eprintf("Missing arguments! (type --help for more info).\n");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
         print_help();
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     char* bin_path = NULL;
     char* audio_path = NULL;
     char* events_path = NULL;
-    char* output_path = "output";
-    bool wems_only = false;
-    bool oggs_only = false;
     for (char** arg = &argv[1]; *arg; arg++) {
         if (strcmp(*arg, "-a") == 0 || strcmp(*arg, "--audio") == 0) {
             if (*(arg + 1)) {
@@ -385,10 +381,6 @@ WemInformation* bnk_extract(int argc, char* argv[])
                 arg++;
                 bin_path = *arg;
             }
-        } else if (strcmp(*arg, "--wem-only") == 0 || strcmp(*arg, "--wems-only") == 0) {
-            wems_only = true;
-        } else if (strcmp(*arg, "--ogg-only") == 0 || strcmp(*arg, "--oggs-only") == 0) {
-            oggs_only = true;
         } else if (strcmp(*arg, "-v") == 0) {
             VERBOSE++;
         }
@@ -406,11 +398,11 @@ WemInformation* bnk_extract(int argc, char* argv[])
     WemInformation* wem_information;
     if (!bin_path) {
         if (strlen(audio_path) >= 4 && memcmp(&audio_path[strlen(audio_path) - 4], ".bnk", 4) == 0)
-            wem_information = extract_bnk_file(audio_path, &string_files, output_path, wems_only, oggs_only);
+            wem_information = parse_audio_bnk_file(audio_path, &string_files);
         else
-            wem_information = extract_wpk_file(audio_path, &string_files, output_path, wems_only, oggs_only);
+            wem_information = parse_wpk_file(audio_path, &string_files);
         free(string_files.objects);
-        wem_information->grouped_wems->string = strdup(audio_path);
+        if (wem_information) wem_information->grouped_wems->string = strdup(audio_path);
         return wem_information;
     }
 
@@ -434,9 +426,9 @@ WemInformation* bnk_extract(int argc, char* argv[])
     initialize_list(&music_tracks);
     initialize_list(&music_playlists);
 
-    if (parse_bnk_file(events_path, &sounds, &event_actions, &events, &random_containers, &music_segments, &music_tracks, &music_playlists)) {
-        // TODO: well prevent the memory leaks lol
-        return NULL;
+    if (parse_event_bnk_file(events_path, &sounds, &event_actions, &events, &random_containers, &music_segments, &music_tracks, &music_playlists) != 0) {
+        wem_information = NULL;
+        goto free_and_return;
     }
     sort_list(&event_actions, self_id);
     sort_list(&events, self_id);
@@ -509,6 +501,14 @@ WemInformation* bnk_extract(int argc, char* argv[])
         }
     }
 
+    sort_list(&string_files, hash);
+    if (strlen(audio_path) >= 4 && memcmp(&audio_path[strlen(audio_path) - 4], ".bnk", 4) == 0)
+        wem_information = parse_audio_bnk_file(audio_path, &string_files);
+    else
+        wem_information = parse_wpk_file(audio_path, &string_files);
+    if (wem_information) wem_information->grouped_wems->string = strdup(audio_path);
+
+    free_and_return:;
     free_sound_section(&sounds);
     free_event_action_section(&event_actions);
     free_event_section(&events);
@@ -516,13 +516,6 @@ WemInformation* bnk_extract(int argc, char* argv[])
     free_music_container_section(&music_segments);
     free_music_track_section(&music_tracks);
     free_music_container_section(&music_playlists);
-
-    sort_list(&string_files, hash);
-    if (strlen(audio_path) >= 4 && memcmp(&audio_path[strlen(audio_path) - 4], ".bnk", 4) == 0)
-        wem_information = extract_bnk_file(audio_path, &string_files, output_path, wems_only, oggs_only);
-    else
-        wem_information = extract_wpk_file(audio_path, &string_files, output_path, wems_only, oggs_only);
-    wem_information->grouped_wems->string = strdup(audio_path);
 
     free(string_files.objects);
     for (uint32_t i = 0; i < read_strings->length; i++) {

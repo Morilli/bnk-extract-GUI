@@ -10,7 +10,7 @@ using namespace std;
 
 class ww2ogg_options
 {
-    BinaryData* in_filedata;
+    AudioData* in_filedata;
     string in_filename;
     string out_filename;
     string codebooks_filename;
@@ -26,7 +26,7 @@ public:
                            force_packet_format(kNoForcePacketFormat)
       {}
     void parse_args(int argc, char **argv);
-    const BinaryData& get_in_filedata(void) const {return *in_filedata;}
+    const AudioData& get_in_filedata(void) const {return *in_filedata;}
     const string& get_in_filename(void) const {return in_filename;}
     const string& get_out_filename(void) const {return out_filename;}
     const string& get_codebooks_filename(void) const {return codebooks_filename;}
@@ -85,11 +85,11 @@ void ww2ogg_options::parse_args(int argc, char ** argv)
     bool set_input = false, set_output = false;
     for (int i = 1; i < argc; i++)
     {
-        if (!strcmp(argv[i], "--binarydata"))
+        if (!strcmp(argv[i], "--audiodata"))
         {
             if (i+1 >= argc)
             {
-                throw Argument_error("--binarydata needs an option");
+                throw Argument_error("--audiodata needs an option");
             }
 
             hex2bytes(argv[++i], &in_filedata, 16);

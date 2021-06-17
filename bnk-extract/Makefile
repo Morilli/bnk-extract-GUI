@@ -1,29 +1,20 @@
-CC := gcc
-CXX := g++
-ifdef DEBUG
-	_DEBUG := -DDEBUG
-endif
-CFLAGS := -std=gnu18 -Wall -Wextra -pedantic -Os -flto $(_DEBUG)
-CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-unused-function -Os -flto
-LDFLAGS := libvorbis.a libogg.a -Wl,--gc-sections
+CFLAGS := -std=gnu18 -Wall -Wextra -pedantic -Os -flto
+CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-unused-function -Wno-missing-field-initializers -Os -flto
 target := bnk-extract
 
 ifeq ($(OS),Windows_NT)
-    LDFLAGS := $(LDFLAGS) -static
-    target := $(target).a
+    target := lib$(target).a
 endif
 
 all: $(target)
-strip: LDFLAGS := $(LDFLAGS) -s
-strip: all
 
 sound_OBJECTS=general_utils.o bin.o bnk.o extract.o wpk.o sound.o
 
 general_utils.o: general_utils.h defs.h
 bin.o: bin.h defs.h list.h
-bnk.o: bnk.h bin.h defs.h extract.h
-extract.c: extract.h defs.h general_utils.h
-wpk.o: wpk.h bin.h defs.h extract.h
+bnk.o: bin.h defs.h extract.h static_list.h
+extract.c: defs.h general_utils.h
+wpk.o: bin.h defs.h extract.h static_list.h
 sound.o: bin.h bnk.h defs.h wpk.h
 
 BIT_STREAM_HEADERS=ww2ogg/Bit_stream.hpp ww2ogg/crc.h ww2ogg/errors.hpp
@@ -31,20 +22,18 @@ WWRIFF_HEADERS=ww2ogg/wwriff.hpp $(BIT_STREAM_HEADERS)
 
 ww2ogg_OBJECTS=ww2ogg/ww2ogg.o ww2ogg/wwriff.o ww2ogg/codebook.o ww2ogg/crc.o
 
-ww2ogg/ww2ogg.o: ww2ogg/ww2ogg.cpp $(WWRIFF_HEADERS) general_utils.h
-ww2ogg/wwriff.o: ww2ogg/wwriff.cpp ww2ogg/codebook.hpp $(WWRIFF_HEADERS) defs.h
-#$(CXX) -Wall -Wextra -Wno-unused-function -Os -c -flto ww2ogg/wwriff.cpp -o $@
-ww2ogg/codebook.o: ww2ogg/codebook.cpp ww2ogg/codebook.hpp $(BIT_STREAM_HEADERS) defs.h
-	$(CXX) -Wall -Wextra -Wno-unused-function -O2 -c -flto ww2ogg/codebook.cpp -o $@
-ww2ogg/crc.o: ww2ogg/crc.c ww2ogg/crc.h
+ww2ogg/ww2ogg.o: $(WWRIFF_HEADERS) defs.h general_utils.h
+ww2ogg/wwriff.o: ww2ogg/codebook.hpp $(WWRIFF_HEADERS) defs.h
+ww2ogg/codebook.o: CXXFLAGS:=$(CXXFLAGS) -O2 # not sure why this is necessary; a lto bug perhaps? surely does not link with -Os tho
+ww2ogg/codebook.o: ww2ogg/codebook.hpp $(BIT_STREAM_HEADERS) defs.h
+ww2ogg/crc.o: ww2ogg/crc.h
 
 revorb_OBJECTS=revorb/revorb.o
-revorb/revorb.o: revorb/revorb.c defs.h general_utils.h
+revorb/revorb.o: defs.h general_utils.h list.h
 
-bnk-extract bnk-extract.exe bnk-extract.a: $(ww2ogg_OBJECTS) $(revorb_OBJECTS) $(sound_OBJECTS)
-#	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) -o $@
-	$(AR) -rcs libbnk-extract.a $^
+$(target): $(ww2ogg_OBJECTS) $(revorb_OBJECTS) $(sound_OBJECTS)
+	$(AR) -rcs $@ $^
 
 
 clean:
-	rm -f bnk-extract bnk-extract.exe $(sound_OBJECTS) $(ww2ogg_OBJECTS) $(revorb_OBJECTS)
+	rm -f libbnk-extract.a $(sound_OBJECTS) $(ww2ogg_OBJECTS) $(revorb_OBJECTS)

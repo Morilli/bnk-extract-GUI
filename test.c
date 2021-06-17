@@ -10,6 +10,7 @@
 #include "resource.h"
 #include "IDropTarget.h"
 #include "utility.h"
+#include "bnk-extract/api.h"
 
 
 void InsertStringToTreeview(HWND Treeview, StringWithChildren* element, HTREEITEM parent)
@@ -67,25 +68,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 bool isRootItem = !TreeView_GetParent(treeview, selectedItem.hItem);
                 bool isChildItem = selectedItem.lParam && !isRootItem;
                 if (isChildItem) { // is a child item (with wem data)
-                    BinaryData* wemData = (BinaryData*) selectedItem.lParam;
+                    AudioData* wemData = (AudioData*) selectedItem.lParam;
                     BinaryData* oggData = WemToOgg(wemData);
-                    ReadableBinaryData readableOggData = {
-                        .data = oggData->data,
-                        .size = oggData->length
-                    };
-                    static uint8_t* oldPcmData = NULL;
-                    uint8_t* pcmData = WavFromOgg(&readableOggData);
-                    PlaySound(NULL, NULL, 0); // cancel all playing sounds
-                    free(oldPcmData);
-                    if (!pcmData) { // conversion failed, so assume it is already wav data (e.g. malzahar skin06 recall_leadin)
-                        PlaySound((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
-                        oldPcmData = oggData->data;
+                    if (oggData) {
+                        ReadableBinaryData readableOggData = {
+                            .data = oggData->data,
+                            .size = oggData->length
+                        };
+                        static uint8_t* oldPcmData;
+                        uint8_t* pcmData = WavFromOgg(&readableOggData);
+                        PlaySound(NULL, NULL, 0); // cancel all playing sounds
+                        free(oldPcmData);
+                        if (!pcmData) { // conversion failed, so assume it is already wav data (e.g. malzahar skin06 recall_leadin)
+                            PlaySound((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
+                            oldPcmData = oggData->data;
+                        } else {
+                            PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
+                            oldPcmData = pcmData;
+                            free(oggData->data);
+                        }
+                        free(oggData);
                     } else {
-                        PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
-                        oldPcmData = pcmData;
-                        free(oggData->data);
+                        MessageBox(hwnd, "Conversion from wem->ogg failed.\n"
+                        "This shouldn't happen and usually indicates a broken wem file.", "Conversion failure", MB_ICONINFORMATION);
                     }
-                    free(oggData);
                 }
 
                 // Set button states based on which item was selected
@@ -95,12 +101,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 return 0;
             } else if (((NMHDR*) lParam)->code == TVN_DELETEITEM) {
                 TVITEM toBeDeleted = ((NMTREEVIEW*) lParam)->itemOld;
-                if (toBeDeleted.lParam && !TreeView_GetParent(treeview, toBeDeleted.hItem)) {
-                    IndexedDataList* wemDataList = (IndexedDataList*) toBeDeleted.lParam;
+                if (toBeDeleted.lParam && !TreeView_GetParent(treeview, toBeDeleted.hItem)) { // root item
+                    AudioDataList* wemDataList = (AudioDataList*) toBeDeleted.lParam;
                     printf("deleting list %p\n", wemDataList);
                     for (uint32_t i = 0; i < wemDataList->length; i++) {
-                        free(wemDataList->objects[i].wemData->data);
-                        free(wemDataList->objects[i].wemData);
+                        free(wemDataList->objects[i].data);
                     }
                     free(wemDataList->objects);
                     free(wemDataList);
@@ -127,13 +132,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     GetWindowText(AudioTextBox, audioPath, sizeof(audioPath));
                     GetWindowText(EventsTextBox, eventsPath, sizeof(eventsPath));
                     char* bnk_extract_args[] = {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, "-vv", NULL};
-                    WemInformation* structuredWems = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
-                    if (structuredWems) {
-                        structuredWems->grouped_wems->wemData = (BinaryData*) structuredWems->sortedWemDataList;
-                        InsertStringToTreeview(treeview, structuredWems->grouped_wems, TVI_ROOT);
+                    WemInformation* wemInformation = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
+                    if (wemInformation) {
+                        wemInformation->grouped_wems->wemData = (AudioData*) wemInformation->sortedWemDataList;
+                        InsertStringToTreeview(treeview, wemInformation->grouped_wems, TVI_ROOT);
                         ShowWindow(treeview, SW_SHOWNORMAL);
-                        free(structuredWems->grouped_wems);
-                        free(structuredWems);
+                        free(wemInformation->grouped_wems);
+                        free(wemInformation);
                     } else {
                         MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
                         "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);

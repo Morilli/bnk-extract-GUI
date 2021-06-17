@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <dwmapi.h>
 
-#include "bnk-extract/api.h"
-
 extern HWND treeview;
 extern int worker_thread_pipe[2];
 

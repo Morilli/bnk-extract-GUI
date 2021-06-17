@@ -62,8 +62,8 @@ void codebook_library::rebuild(int i, Bit_oggstream& bos)
         cb_size = signed_cb_size;
     }
 
-    BinaryData bd = (BinaryData) {.length = cb_size, .data = (uint8_t*) cb};
-    Bit_stream bis(bd);
+    AudioData ad = {.length = cb_size, .data = (uint8_t*) cb};
+    Bit_stream bis(ad);
 
     rebuild(bis, cb_size, bos);
 }

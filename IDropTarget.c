@@ -5,6 +5,7 @@
 #include <shlobj.h>
 
 #include "utility.h"
+#include "bnk-extract/defs.h"
 
 typedef struct InternalIDropTarget {
     IDropTargetVtbl* _vTable;
@@ -148,7 +149,7 @@ static HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, 
         .hItem = rootItem
     };
     TreeView_GetItem(treeview, &tvItem);
-    IndexedDataList* wemDataList = (IndexedDataList*) tvItem.lParam;
+    AudioDataList* wemDataList = (AudioDataList*) tvItem.lParam;
 
     IEnumFORMATETC* enumFormatEtc;
     if (pDataObj->lpVtbl->EnumFormatEtc(pDataObj, DATADIR_GET, &enumFormatEtc) == S_OK) {
@@ -167,9 +168,9 @@ static HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, 
                     char fileNameBuffer[fileNameSize + 1];
                     DragQueryFile(hDropInfo, index, fileNameBuffer, fileNameSize + 1);
                     uint32_t current_file_id = strtol(rstrstr(fileNameBuffer, "\\") + 1, NULL, 0);
-                    IndexedData* wemData = NULL;
+                    AudioData* wemData = NULL;
                     printf("wemDataList: %p\n", wemDataList);
-                    printf("length of list: %u, %u\n", wemDataList->length, wemDataList->allocated_length);
+                    printf("length of list: %llu\n", wemDataList->length);
                     for (uint32_t i = 0; i < wemDataList->length; i++) {
                         printf("objects[%d]: %u\n", i, wemDataList->objects[i].id);
                     }
@@ -179,11 +180,11 @@ static HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, 
                         FILE* newDataFile = fopen(fileNameBuffer, "rb");
                         if (!newDataFile) continue;
                         fseek(newDataFile, 0, SEEK_END);
-                        wemData->wemData->length = ftell(newDataFile);
-                        free(wemData->wemData->data);
-                        wemData->wemData->data = malloc(wemData->wemData->length);
+                        wemData->length = ftell(newDataFile);
+                        free(wemData->data);
+                        wemData->data = malloc(wemData->length);
                         rewind(newDataFile);
-                        fread(wemData->wemData->data, wemData->wemData->length, 1, newDataFile);
+                        fread(wemData->data, wemData->length, 1, newDataFile);
                         fclose(newDataFile);
                     }
                 }

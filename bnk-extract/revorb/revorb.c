@@ -151,13 +151,6 @@ BinaryData* revorb(int argc, const char **argv)
 
     uint8_list output_buffer;
     initialize_list(&output_buffer);
-    // BianryData* bo = malloc(sizeof())
-    // FILE *fo;
-    // fo = fopen(argv[2], "wb");
-    // if (!fo) {
-        // eprintf("Could not open output file.\n");
-        // return 2;
-    // }
 
   ogg_sync_state sync_in;
   ogg_sync_init(&sync_in);

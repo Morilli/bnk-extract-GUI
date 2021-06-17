@@ -22,7 +22,7 @@ enum ForcePacketFormat {
 
 class Wwise_RIFF_Vorbis
 {
-    const BinaryData& _infile_data;
+    const AudioData& _infile_data;
     string _codebooks_name;
 
     bool _little_endian;
@@ -65,7 +65,7 @@ class Wwise_RIFF_Vorbis
     uint32_t (*_read_32)(unsigned char b[4]);
 public:
     Wwise_RIFF_Vorbis(
-      const BinaryData& bd,
+      const AudioData& ad,
       const string& _codebooks_name,
       bool inline_codebooks,
       bool full_setup,

@@ -18,23 +18,23 @@ class Packet
     uint32_t _absolute_granule;
     bool _no_granule;
 public:
-    Packet(const BinaryData& bd, long o, bool little_endian, bool no_granule = false) : _offset(o), _size(-1), _absolute_granule(0), _no_granule(no_granule) {
+    Packet(const AudioData& ad, long o, bool little_endian, bool no_granule = false) : _offset(o), _size(-1), _absolute_granule(0), _no_granule(no_granule) {
         // i.seekg(_offset);
 
         if (little_endian)
         {
-            _size = read_16_le(&bd.data[_offset]);
+            _size = read_16_le(&ad.data[_offset]);
             if (!_no_granule)
             {
-                _absolute_granule = read_32_le(&bd.data[_offset + 2]);
+                _absolute_granule = read_32_le(&ad.data[_offset + 2]);
             }
         }
         else
         {
-            _size = read_16_be(&bd.data[_offset]);
+            _size = read_16_be(&ad.data[_offset]);
             if (!_no_granule)
             {
-                _absolute_granule = read_32_be(&bd.data[_offset + 2]);
+                _absolute_granule = read_32_be(&ad.data[_offset + 2]);
             }
         }
     }
@@ -53,16 +53,16 @@ class Packet_8
     uint32_t _size;
     uint32_t _absolute_granule;
 public:
-    Packet_8(const BinaryData& bd, long o, bool little_endian) : _offset(o), _size(-1), _absolute_granule(0) {
+    Packet_8(const AudioData& ad, long o, bool little_endian) : _offset(o), _size(-1), _absolute_granule(0) {
         if (little_endian)
         {
-            _size = read_32_le(&bd.data[_offset]);
-            _absolute_granule = read_32_le(&bd.data[_offset + 4]);
+            _size = read_32_le(&ad.data[_offset]);
+            _absolute_granule = read_32_le(&ad.data[_offset + 4]);
         }
         else
         {
-            _size = read_32_be(&bd.data[_offset]);
-            _absolute_granule = read_32_be(&bd.data[_offset + 4]);
+            _size = read_32_be(&ad.data[_offset]);
+            _absolute_granule = read_32_be(&ad.data[_offset + 4]);
         }
     }
 
@@ -99,14 +99,14 @@ public:
 const char Vorbis_packet_header::vorbis_str[6] = {'v','o','r','b','i','s'};
 
 Wwise_RIFF_Vorbis::Wwise_RIFF_Vorbis(
-    const BinaryData& infile,
+    const AudioData& indata,
     const string& codebooks_name,
     bool inline_codebooks,
     bool full_setup,
     ForcePacketFormat force_packet_format
     )
   :
-    _infile_data(infile),
+    _infile_data(indata),
     _codebooks_name(codebooks_name),
     _little_endian(true),
     _is_wav(false),

@@ -172,7 +172,7 @@ namespace {
 
 // using an istream, pull off individual bits with get_bit (LSB first)
 class Bit_stream {
-    const BinaryData& bd;
+    const AudioData& ad;
     int initial_position;
 
     unsigned char bit_buffer;
@@ -183,16 +183,16 @@ public:
     class Weird_char_size {};
     class Out_of_bits {};
 
-    Bit_stream(const BinaryData& _bd, int initial_position = 0) : bd(_bd), initial_position(initial_position), bit_buffer(0), bits_left(0), total_bits_read(0) {
+    Bit_stream(const AudioData& _ad, int initial_position = 0) : ad(_ad), initial_position(initial_position), bit_buffer(0), bits_left(0), total_bits_read(0) {
         if ( std::numeric_limits<unsigned char>::digits != 8)
             throw Weird_char_size();
     }
     bool get_bit() {
         if (bits_left == 0) {
 
-            if (initial_position + total_bits_read / 8 == bd.length)
+            if (initial_position + total_bits_read / 8 == ad.length)
                 throw Out_of_bits();
-            bit_buffer = bd.data[initial_position + total_bits_read / 8];
+            bit_buffer = ad.data[initial_position + total_bits_read / 8];
             bits_left = 8;
 
         }

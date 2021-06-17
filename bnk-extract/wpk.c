@@ -4,11 +4,10 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "wpk.h"
 #include "defs.h"
 #include "bin.h"
 #include "extract.h"
-#include "api.h"
+#include "static_list.h"
 
 struct WPKFileEntry {
     uint32_t data_offset;
@@ -67,7 +66,7 @@ void parse_data(FILE* wpk_file, struct WPKFile* wpkfile)
     }
 }
 
-WemInformation* extract_wpk_file(char* wpk_path, StringHashes* string_hashes, char* output_path, bool wems_only, bool oggs_only)
+WemInformation* parse_wpk_file(char* wpk_path, StringHashes* string_hashes)
 {
     FILE* wpk_file = fopen(wpk_path, "rb");
     if (!wpk_file) {
@@ -81,21 +80,24 @@ WemInformation* extract_wpk_file(char* wpk_path, StringHashes* string_hashes, ch
     parse_data(wpk_file, &wpkfile);
     fclose(wpk_file);
 
-    AudioDataList audio_data_list;
-    initialize_list_size(&audio_data_list, wpkfile.file_count);
+    WemInformation* wem_information = malloc(sizeof(WemInformation));
+    wem_information->sortedWemDataList = malloc(sizeof(AudioDataList));
+    initialize_static_list(wem_information->sortedWemDataList, wpkfile.file_count);
     for (uint32_t i = 0; i < wpkfile.file_count; i++) {
-        add_object(&audio_data_list, (&(AudioData) {.id = strtoul(wpkfile.wpk_file_entries[i].filename, NULL, 10), .data = {.length = wpkfile.wpk_file_entries[i].data_length, .data = wpkfile.wpk_file_entries[i].data}}));
+        wem_information->sortedWemDataList->objects[i] = (AudioData) {
+            .id = strtoul(wpkfile.wpk_file_entries[i].filename, NULL, 10),
+            .length = wpkfile.wpk_file_entries[i].data_length,
+            .data = wpkfile.wpk_file_entries[i].data
+        };
     }
-
-    WemInformation* grouped_wems = extract_all_audio(output_path, &audio_data_list, string_hashes, wems_only, oggs_only);
 
     for (uint32_t i = 0; i < wpkfile.file_count; i++) {
         free(wpkfile.wpk_file_entries[i].filename);
-        // free(wpkfile.wpk_file_entries[i].data);
     }
     free(wpkfile.offsets);
     free(wpkfile.wpk_file_entries);
-    free(audio_data_list.objects);
 
-    return grouped_wems;
+    wem_information->grouped_wems = group_wems(wem_information->sortedWemDataList, string_hashes);
+
+    return wem_information;
 }
