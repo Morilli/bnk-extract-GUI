@@ -242,8 +242,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     GetWindowText(BinTextBox, binPath, sizeof(binPath));
                     GetWindowText(AudioTextBox, audioPath, sizeof(audioPath));
                     GetWindowText(EventsTextBox, eventsPath, sizeof(eventsPath));
-                    char* bnk_extract_args[] = {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, "-vv", NULL};
-                    WemInformation* wemInformation = bnk_extract(ARRAYSIZE(bnk_extract_args)-1, bnk_extract_args);
+                    bool onlyAudioGiven = *audioPath && !*binPath && !*eventsPath;
+                    char** bnk_extract_args = onlyAudioGiven ? (char*[]) {"", "-a", audioPath, NULL} : (char*[]) {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, NULL};
+                    WemInformation* wemInformation = bnk_extract(onlyAudioGiven ? 3 : 7, bnk_extract_args);
                     if (wemInformation) {
                         wemInformation->grouped_wems->wemData = (AudioData*) wemInformation->sortedWemDataList;
                         InsertStringToTreeview(wemInformation->grouped_wems, TVI_ROOT);
