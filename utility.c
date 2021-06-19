@@ -61,7 +61,7 @@ static const ov_callbacks oggCallbacks = {
 // gives the distance to the next lower number that devides through this power of two, e.g. (1234, 8) -> 2
 #define diff_from_clamp(number, clamp) ((number+clamp-1) & (clamp-1))
 
-void write_wpk_file(AudioDataList* wemFiles, char* outputPath)
+static void write_wpk_file(AudioDataList* wemFiles, char* outputPath)
 {
     const int clamp = 8;
     FILE* wpk_file = fopen(outputPath, "wb");
@@ -116,7 +116,7 @@ void write_wpk_file(AudioDataList* wemFiles, char* outputPath)
     free(offset_list.objects);
 }
 
-void write_bnk_file(AudioDataList* wemFiles, char* outputPath)
+static void write_bnk_file(AudioDataList* wemFiles, char* outputPath)
 {
     const int clamp = 16;
     const uint32_t version = 0x86; // TODO FIXME this should be taken from the original source file
@@ -225,7 +225,7 @@ void ReplaceWemData(HWND window, HTREEITEM item)
     }
 }
 
-void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
+static void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
 {
     // check whether this is a "global" root item. If so, do not use its (path-like) label text and abuse the fact "//" is equivalent to "/"
     bool isRootItem = !TreeView_GetParent(treeview, hItem);
@@ -245,14 +245,33 @@ void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
     mbstowcs(current_output_path + wcslen(output_path) + 1, tvItem.pszText, strlen(tvItem.pszText) + 1);
 
     if (tvItem.lParam && !isRootItem) { // item is a child item, has wem data associated with it
-        FILE* output_file = _wfopen(current_output_path, L"wb");
-        if (!output_file) {
-            MessageBoxW(NULL, L"Failed to open an output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
-            return;
+        if (settings[ID_EXTRACT_AS_WEM-SETTINGS_OFFSET]) { // should be extracted as wem
+            FILE* output_file = _wfopen(current_output_path, L"wb");
+            if (!output_file) {
+                MessageBoxW(NULL, L"Failed to open a wem output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
+                return;
+            }
+            AudioData* wemData = (AudioData*) tvItem.lParam;
+            fwrite(wemData->data, wemData->length, 1, output_file);
+            fclose(output_file);
         }
-        AudioData* wemData = (AudioData*) tvItem.lParam;
-        fwrite(wemData->data, wemData->length, 1, output_file);
-        fclose(output_file);
+
+        if (settings[ID_EXTRACT_AS_OGG-SETTINGS_OFFSET]) { // should be extracted as ogg
+            AudioData* wemData = (AudioData*) tvItem.lParam;
+            BinaryData* oggData = WemToOgg(wemData);
+            if (oggData) { // some rare wem files fail to convert. Just ignore them silently here; it's not worth it
+                _swprintf(current_output_path + wcslen(current_output_path) - 3, L"ogg");
+                FILE* output_file = _wfopen(current_output_path, L"wb");
+                if (!output_file) {
+                    MessageBoxW(NULL, L"Failed to open an ogg output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
+                    return;
+                }
+                fwrite(oggData->data, oggData->length, 1, output_file);
+                fclose(output_file);
+                free(oggData->data);
+                free(oggData);
+            }
+        }
     } else if (tvItem.cChildren > 0) { // item is a parent item, so extract all children
         // note that cChildren > 0 *should* always be true here
         _wmkdir(current_output_path);

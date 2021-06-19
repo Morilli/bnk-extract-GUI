@@ -1,17 +1,27 @@
+#include <windows.h>
+
 #include "resource.h"
 
 IDR_MYMENU MENU
-BEGIN
-    POPUP "File"
-    BEGIN
-        MENUITEM "Exit", ID_FILE_EXIT
-    END
-
-    POPUP "Stuff"
-    BEGIN
-        MENUITEM "Go", ID_STUFF_GO
-        MENUITEM "Go somewhere else", 0, GRAYED
-    END
-END
+{
+    POPUP "&Settings"
+    {
+        POPUP "Settings"
+        {
+            MENUITEM "Settings", IDM_SETTINGS
+        }
+    }
+}
 
 IDI_MYICON ICON "icon.ico"
+
+OPTIONSDIALOG_RESOURCE DIALOG  120, 50, 110, 90
+STYLE WS_POPUPWINDOW
+CAPTION "Options"
+{
+    AUTOCHECKBOX "Automatically play audio on click", ID_AUTOPLAY_AUDIO, 10, 10, 190, 12
+    AUTOCHECKBOX "Extract as wem files", ID_EXTRACT_AS_WEM, 10, 40, 70, 12
+    AUTOCHECKBOX "Extract as ogg files", ID_EXTRACT_AS_OGG, 10, 52, 70, 12
+
+    PUSHBUTTON "", IDOK, 40, 75, 30, 10
+}
