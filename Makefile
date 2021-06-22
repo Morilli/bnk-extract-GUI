@@ -1,4 +1,4 @@
-CFLAGS ?= -std=gnu18 -Wall -Wextra -Os -flto -Ilibogg1.3.5/include -Ilibvorbis-1.3.7/include
+CFLAGS ?= -std=gnu18 -Wall -Wextra -Os -flto -Ilibogg-1.3.5/include -Ilibvorbis-1.3.7/include
 LDFLAGS ?= -Os -flto -g -lole32 -luuid -lcomctl32 -lgdi32 -lComdlg32 -lWinmm -static -Wl,--gc-sections
 target := gui.exe
 

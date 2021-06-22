@@ -1,4 +1,4 @@
-CFLAGS := -std=gnu18 -Wall -Wextra -pedantic -Os -flto
+CFLAGS := -std=gnu18 -Wall -Wextra -pedantic -Os -flto -I../libogg-1.3.5/include -I../libvorbis-1.3.7/include
 CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-unused-function -Wno-missing-field-initializers -Os -flto
 target := bnk-extract
 
