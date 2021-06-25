@@ -22,6 +22,7 @@ static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, 
             SaveButton, ReplaceButton, PlayAudioButton, StopAudioButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 HWND treeview;
+static HACCEL KeyCombinations;
 static uint8_t* oldPcmData;
 bool oldSettings[SETTINGS_AMOUNT];
 
@@ -317,8 +318,27 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 return 0;
-            } else if (LOWORD(wParam == IDM_SETTINGS)) {
+            } else if (LOWORD(wParam) == IDM_SETTINGS) {
                 DialogBox(me, MAKEINTRESOURCE(OPTIONSDIALOG_RESOURCE), mainWindow, OptionsDialogProc);
+                return 0;
+            } else if (LOWORD(wParam) == IDM_COPY) {
+                HTREEITEM selectedItem = TreeView_GetSelection(treeview);
+                if (selectedItem) {
+                    char itemText[256] = {0};
+                    TVITEM tvItem = {
+                        .mask = TVIF_TEXT,
+                        .hItem = selectedItem,
+                        .pszText = itemText,
+                        .cchTextMax = 255
+                    };
+                    TreeView_GetItem(treeview, &tvItem);
+                    if (OpenClipboard(hwnd)) {
+                        EmptyClipboard();
+                        char* clipboardText = strdup(tvItem.pszText); // i think the system frees this itself... at some point
+                        SetClipboardData(CF_TEXT, clipboardText);
+                        CloseClipboard();
+                    }
+                }
                 return 0;
             }
             break;
@@ -333,6 +353,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     OleInitialize(NULL);
     me = hInstance;
     LoadSettings();
+    KeyCombinations = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_KEYCOMBINATIONS));
     // init used common controls
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_PROGRESS_CLASS});
     InitCommonControlsEx(&(INITCOMMONCONTROLSEX) {.dwSize = sizeof(INITCOMMONCONTROLSEX), .dwICC = ICC_TREEVIEW_CLASSES});
@@ -406,7 +427,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     // Step 3: The Message Loop
     MSG Msg;
     while (GetMessage(&Msg, NULL, 0, 0) > 0) {
-        if (!IsDialogMessage(mainWindow, &Msg)) {
+        if (!TranslateAccelerator(mainWindow, KeyCombinations, &Msg) && !IsDialogMessage(mainWindow, &Msg)) {
             TranslateMessage(&Msg);
             DispatchMessage(&Msg);
         }
