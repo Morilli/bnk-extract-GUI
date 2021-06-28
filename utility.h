@@ -4,9 +4,6 @@
 #include <stdint.h>
 #include <dwmapi.h>
 
-#include "resource.h"
-
-extern bool settings[SETTINGS_AMOUNT];
 extern HWND treeview;
 extern int worker_thread_pipe[2];
 

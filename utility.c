@@ -8,6 +8,7 @@
 #include <dwmapi.h>
 
 #include "utility.h"
+#include "settings.h"
 #include "bnk-extract/api.h"
 #include "vorbis/vorbisfile.h"
 
