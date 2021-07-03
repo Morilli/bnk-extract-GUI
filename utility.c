@@ -251,9 +251,10 @@ void ReplaceWemData(HWND window)
             sprintf(infoMessage, "Info: Replacing %d files randomly with %d", selectedChildItemsDataList.length, nFilesSelected);
             MessageBox(window, infoMessage, "a", 0);
         }
-        const char* currentPosition = fileNameInfo.lpstrFile;
+        const char* currentPosition;
         for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
-            if (!*currentPosition) currentPosition = fileNameInfo.lpstrFile;
+            if (i % nFilesSelected == 0)
+                currentPosition = fileNameInfo.lpstrFile;
             currentPosition += strlen(currentPosition) + 1;
             char currentFileName[PATH_MAX];
             sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
