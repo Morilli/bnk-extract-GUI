@@ -227,9 +227,11 @@ void ReplaceWemData(HWND window)
         .hwndOwner = window,
         .lpstrFile = fileNameBuffer,
         .nMaxFile = UINT16_MAX,
-        .Flags = OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER,
+        .Flags = OFN_FILEMUSTEXIST,
         .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
     };
+    if (selectedChildItemsDataList.length > 1)
+        fileNameInfo.Flags |= OFN_ALLOWMULTISELECT | OFN_EXPLORER;
 
     if (GetOpenFileName(&fileNameInfo)) {
         uint32_t nFilesSelected = 0;
@@ -244,30 +246,32 @@ void ReplaceWemData(HWND window)
             char warningMessage[sizeof("Warning: 123456789A files selected, but only 123456789A are going to be used")];
             sprintf(warningMessage, "Warning: %d files selected, but only %d are going to be used", nFilesSelected, selectedChildItemsDataList.length);
             MessageBox(window, warningMessage, "Too many files selected!", MB_ICONWARNING);
-        } else {
+        } else if (nFilesSelected > 1) {
             char infoMessage[sizeof("Info: Replacing 123456789A files randomly with 123456789A")];
             sprintf(infoMessage, "Info: Replacing %d files randomly with %d", selectedChildItemsDataList.length, nFilesSelected);
             MessageBox(window, infoMessage, "a", 0);
         }
         const char* currentPosition = fileNameInfo.lpstrFile;
         for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
+            if (!*currentPosition) currentPosition = fileNameInfo.lpstrFile;
             currentPosition += strlen(currentPosition) + 1;
             char currentFileName[PATH_MAX];
             sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
-            printf("current file name: \"%s\"\n", currentFileName);
-            FILE* newDataFile = fopen(currentFileName, "rb");
+            printf("current file name: \"%s\"\n", nFilesSelected == 1 ? fileNameInfo.lpstrFile : currentFileName);
+            FILE* newDataFile = fopen(nFilesSelected == 1 ? fileNameInfo.lpstrFile : currentFileName, "rb");
             if (!newDataFile) {
+                if (nFilesSelected == 1) break;
                 char errorMessage[sizeof("Failed to open file \"\"!\nReplacement will be inconsistent.") + strlen(currentFileName)];
                 sprintf(errorMessage, "Failed to open file \"%s\"!\nReplacement will be inconsistent.", currentFileName);
                 MessageBox(window, errorMessage, "Failed to open wem file", MB_ICONERROR);
                 continue;
             }
             fseek(newDataFile, 0, SEEK_END);
-            selectedChildItemsDataList.objects[i%nFilesSelected]->length = ftell(newDataFile);
-            free(selectedChildItemsDataList.objects[i%nFilesSelected]->data);
-            selectedChildItemsDataList.objects[i%nFilesSelected]->data = malloc(selectedChildItemsDataList.objects[i%nFilesSelected]->length);
+            selectedChildItemsDataList.objects[i]->length = ftell(newDataFile);
+            free(selectedChildItemsDataList.objects[i]->data);
+            selectedChildItemsDataList.objects[i]->data = malloc(selectedChildItemsDataList.objects[i]->length);
             rewind(newDataFile);
-            fread(selectedChildItemsDataList.objects[i%nFilesSelected]->data, selectedChildItemsDataList.objects[i%nFilesSelected]->length, 1, newDataFile);
+            fread(selectedChildItemsDataList.objects[i]->data, selectedChildItemsDataList.objects[i]->length, 1, newDataFile);
             fclose(newDataFile);
         }
     }
@@ -278,7 +282,7 @@ void ReplaceWemData(HWND window)
 static void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
 {
     // check whether this is a "global" root item. If so, do not use its (path-like) label text and abuse the fact "//" is equivalent to "/"
-    bool isRootItem = !TreeView_GetParent(treeview, hItem);
+    bool isRootItem = TreeView_IsRootItem(hItem);
     UINT mask = TVIF_CHILDREN | TVIF_PARAM | TVIF_TEXT;
     if (isRootItem)
         mask &= ~TVIF_TEXT;
