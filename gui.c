@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <fcntl.h>
-#include <dwmapi.h>
+#include <commctrl.h>
 #include <time.h>
 #include <pthread.h>
 
@@ -11,6 +11,7 @@
 #include "settings.h"
 #include "IDropTarget.h"
 #include "utility.h"
+#include "treeview_extension.h"
 #include "bnk-extract/api.h"
 
 // global window variables
@@ -20,103 +21,9 @@ static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
             SaveButton, ReplaceButton, PlayAudioButton, StopAudioButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
-HWND treeview;
 static HACCEL KeyCombinations;
 static uint8_t* oldPcmData;
-
-void TreeView_ClearAllSelectedItems()
-{
-    void ClearChildren(HTREEITEM currentRoot) {
-        HTREEITEM child = TreeView_GetChild(treeview, currentRoot);
-        if (child)
-        do {
-            TreeView_SetItemState(treeview, child, 0, TVIS_SELECTED);
-            ClearChildren(child);
-        } while ( (child = TreeView_GetNextSibling(treeview, child)));
-    }
-
-    HTREEITEM root = TreeView_GetRoot(treeview);
-    do {
-        TreeView_SetItemState(treeview, root, 0, TVIS_SELECTED);
-        ClearChildren(root);
-    } while ( (root = TreeView_GetNextSibling(treeview, root)));
-}
-
-static bool previousItemSelected[2];
-
-bool HandleMultiSelectionClick(HTREEITEM hItem)
-{
-    static HTREEITEM previousItem;
-    bool controlDown = GetKeyState(VK_CONTROL) & 0x8000;
-    bool shiftDown = GetKeyState(VK_SHIFT) & 0x8000;
-    bool itemIsSelected = true;
-    if (controlDown && !shiftDown) {
-        UINT itemState = TreeView_GetItemState(treeview, hItem, TVIS_SELECTED);
-        itemState ^= TVIS_SELECTED;
-        TreeView_SetItemState(treeview, hItem, itemState, TVIS_SELECTED);
-        itemIsSelected = (itemState & TVIS_SELECTED) == TVIS_SELECTED;
-        if (itemIsSelected || (!itemIsSelected && previousItem == hItem)) {
-            previousItemSelected[0] = previousItemSelected[1];
-            previousItemSelected[1] = itemIsSelected;
-            previousItem = hItem;
-        }
-    } else if (!controlDown && previousItem == hItem) {
-        TreeView_ClearAllSelectedItems();
-        TreeView_SetItemState(treeview, hItem, TVIS_SELECTED, TVIS_SELECTED); // select new item manually
-    } else if (!controlDown) {
-        previousItemSelected[1] = true;
-        previousItem = hItem;
-    }
-
-    return !itemIsSelected;
-}
-
-void HandleMultiSelectionChanged(NMTREEVIEW* selectionInfo)
-{
-    static HTREEITEM initialItem;
-    bool controlDown = GetKeyState(VK_CONTROL) & 0x8000;
-    bool shiftDown = GetKeyState(VK_SHIFT) & 0x8000;
-    if (selectionInfo->action == TVC_BYMOUSE && controlDown && previousItemSelected[0])
-        TreeView_SetItemState(treeview, selectionInfo->itemOld.hItem, TVIS_SELECTED, TVIS_SELECTED); // old item should *not* get deselected
-    if (shiftDown && selectionInfo->action == TVC_BYKEYBOARD) {
-        if (!initialItem) initialItem = selectionInfo->itemOld.hItem;
-        if (initialItem == selectionInfo->itemOld.hItem)
-            TreeView_SetItemState(treeview, initialItem, TVIS_SELECTED, TVIS_SELECTED); // the initial item should never get deselected
-        HTREEITEM currentItem = TreeView_GetRoot(treeview);
-        bool selectItem = false;
-        while ( (currentItem = TreeView_GetNextVisible(treeview, currentItem)) ) {
-            selectItem ^= currentItem == initialItem || currentItem == selectionInfo->itemNew.hItem;
-            if (selectItem) TreeView_SetItemState(treeview, currentItem, TVIS_SELECTED, TVIS_SELECTED);
-            if (initialItem == selectionInfo->itemNew.hItem) selectItem = false;
-        }
-    } else {
-        initialItem = NULL;
-    }
-}
-
-bool HandleMultiSelectionChanging(NMTREEVIEW* selectionInfo)
-{
-    bool return_value = false;
-    bool controlDown = GetKeyState(VK_CONTROL) & 0x8000;
-    bool shiftDown = GetKeyState(VK_SHIFT) & 0x8000;
-    if (shiftDown && selectionInfo->action == TVC_BYMOUSE) {
-        if (!controlDown) TreeView_ClearAllSelectedItems();
-        TreeView_SetItemState(treeview, selectionInfo->itemOld.hItem, TVIS_SELECTED, TVIS_SELECTED); // old item should *not* get deselected
-        HTREEITEM currentItem = TreeView_GetRoot(treeview);
-        bool selectItem = false;
-        while ( (currentItem = TreeView_GetNextVisible(treeview, currentItem)) ) {
-            selectItem ^= currentItem == selectionInfo->itemOld.hItem || currentItem == selectionInfo->itemNew.hItem;
-            if (selectItem) TreeView_SetItemState(treeview, currentItem, TVIS_SELECTED, TVIS_SELECTED);
-        }
-        return_value = true;
-    }
-    if (!controlDown && !shiftDown) {
-        TreeView_ClearAllSelectedItems();
-    }
-    TreeView_SetItemState(treeview, selectionInfo->itemNew.hItem, TVIS_SELECTED, TVIS_SELECTED); // select new item manually
-
-    return return_value;
-}
+static HTREEITEM rightClickedItem;
 
 void PlayAudio(AudioData* wemData)
 {
@@ -242,26 +149,43 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_NOTIFY:
             switch (((NMHDR*) lParam)->code)
             {
-                case NM_CLICK: {
-                    if (settings[ID_MULTISELECT_ENABLED-SETTINGS_OFFSET]) {
-                        POINTS mousePosition = MAKEPOINTS((DWORD) {GetMessagePos()});
-                        POINT point = {.x = mousePosition.x, .y = mousePosition.y};
-                        ScreenToClient(treeview, &point);
-                        TVHITTESTINFO hitTestInfo = {.pt = point};
-                        HTREEITEM hItem = TreeView_HitTest(treeview, &hitTestInfo);
-                        if (hItem) return HandleMultiSelectionClick(hItem);
+                case NM_RCLICK: {
+                    DWORD position = GetMessagePos();
+                    POINTS mousePosition = MAKEPOINTS(position);
+                    HMENU hPopupMenu = CreatePopupMenu();
+                    InsertMenu(hPopupMenu, 0, MF_BYPOSITION, 1, "Play audio");
+                    InsertMenu(hPopupMenu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
+                    InsertMenu(hPopupMenu, 2, MF_BYPOSITION, 2, "Extract selection");
+                    InsertMenu(hPopupMenu, 3, MF_BYPOSITION, 3, "Replace wem data");
+                    uint64_t selectedId = TrackPopupMenu(hPopupMenu, TPM_RETURNCMD, mousePosition.x, mousePosition.y, 0, hwnd, NULL);
+                    switch (selectedId)
+                    {
+                        case 1:
+                            rightClickedItem = TreeView_PerformHitTest(position, NULL);
+                            return SendMessage(PlayAudioButton, BM_CLICK, 0, 0);
+                        case 2:
+                            return SendMessage(ExtractButton, BM_CLICK, 0, 0);
+                        case 3:
+                            return SendMessage(ReplaceButton, BM_CLICK, 0, 0);
                     }
                     break;
                 }
+                case NM_CLICK:
+                    if (settings[ID_MULTISELECT_ENABLED-SETTINGS_OFFSET]) {
+                        UINT flags;
+                        HTREEITEM hItem = TreeView_PerformHitTest(GetMessagePos(), &flags);
+                        if (hItem && (flags & TVHT_ONITEM)) return HandleMultiSelectionClick(hItem);
+                    }
+                    break;
                 case TVN_SELCHANGING:
                     if (settings[ID_MULTISELECT_ENABLED-SETTINGS_OFFSET])
                         return HandleMultiSelectionChanging((NMTREEVIEW*) lParam);
                     break;
                 case TVN_SELCHANGED: {
                     TVITEM selectedItem = ((NMTREEVIEW*) lParam)->itemNew;
-                    bool isRootItem = !TreeView_GetParent(treeview, selectedItem.hItem);
+                    bool isRootItem = TreeView_IsRootItem(selectedItem.hItem);
                     bool isChildItem = selectedItem.lParam && !isRootItem;
-                    if (isChildItem && settings[ID_AUTOPLAY_AUDIO-SETTINGS_OFFSET] && ((NMTREEVIEW*) lParam)->action) { // user selected a child item and the autoplay setting is active
+                    if (isChildItem && settings[ID_AUTOPLAY_AUDIO-SETTINGS_OFFSET] && ((NMTREEVIEW*) lParam)->action == TVC_BYMOUSE) { // user selected a child item and the autoplay setting is active
                         PlayAudio((AudioData*) selectedItem.lParam);
                     }
 
@@ -277,7 +201,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 }
                 case TVN_DELETEITEM: {
                     TVITEM toBeDeleted = ((NMTREEVIEW*) lParam)->itemOld;
-                    if (toBeDeleted.lParam && !TreeView_GetParent(treeview, toBeDeleted.hItem)) { // root item
+                    if (toBeDeleted.lParam && TreeView_IsRootItem(toBeDeleted.hItem)) { // root item
                         AudioDataList* wemDataList = (AudioDataList*) toBeDeleted.lParam;
                         printf("deleting list %p\n", wemDataList);
                         for (uint32_t i = 0; i < wemDataList->length; i++) {
@@ -327,8 +251,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     Button_Enable(PlayAudioButton, false);
                     TreeView_DeleteAllItems(treeview);
                 } else if ((HWND) lParam == ExtractButton) {
-                    HTREEITEM selectedItem = TreeView_GetSelection(treeview);
-                    if (!selectedItem) {
+                    DWORD selectedItemCount = TreeView_GetSelectedCount(treeview);
+                    if (!selectedItemCount) {
                         const TASKDIALOG_BUTTON buttons[] = { {IDOK, L"rude"} };
                         TASKDIALOGCONFIG taskDialogConfig = {
                             .cbSize = sizeof(TASKDIALOGCONFIG),
@@ -342,7 +266,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         };
                         TaskDialogIndirect(&taskDialogConfig, NULL, NULL, NULL);
                     } else {
-                        ExtractSelectedItem(hwnd, selectedItem);
+                        ExtractSelectedItems(hwnd);
                     }
                 } else if ((HWND) lParam == DeleteSystem32Button) {
                     if (rand() % 100 == 0)
@@ -351,19 +275,27 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     pthread_create(&pid, NULL, FillProgressBar, DeleteSystem32ProgressBar);
                     pthread_detach(pid);
                 } else if ((HWND) lParam == SaveButton) {
-                    HTREEITEM currentSelection = TreeView_GetSelection(treeview);
-                    SaveBnkOrWpk(hwnd, currentSelection);
+                    if (TreeView_GetSelectedCount(treeview) > 1) {
+                        MessageBox(hwnd, "Sorry, won't operate when multiple items are selected", "ah multiselect :/", MB_ICONINFORMATION);
+                    } else {
+                        HTREEITEM currentSelection = TreeView_GetSelection(treeview);
+                        SaveBnkOrWpk(hwnd, currentSelection);
+                    }
                 } else if ((HWND) lParam == ReplaceButton) {
-                    HTREEITEM currentSelection = TreeView_GetSelection(treeview);
-                    ReplaceWemData(hwnd, currentSelection);
+                    ReplaceWemData(hwnd);
                 } else if ((HWND) lParam == PlayAudioButton) {
-                    HTREEITEM selectedItem = TreeView_GetSelection(treeview);
-                    TVITEM tvItem = {
-                        .mask = TVIF_PARAM,
-                        .hItem = selectedItem
-                    };
-                    TreeView_GetItem(treeview, &tvItem);
-                    PlayAudio((AudioData*) tvItem.lParam);
+                    HTREEITEM selectedItem = (TreeView_GetSelectedCount(treeview) > 1)
+                        ? rightClickedItem
+                        : TreeView_GetSelection(treeview);
+                    rightClickedItem = NULL;
+                    if (selectedItem && !TreeView_IsRootItem(selectedItem)) {
+                        TVITEM tvItem = {
+                            .mask = TVIF_PARAM,
+                            .hItem = selectedItem
+                        };
+                        TreeView_GetItem(treeview, &tvItem);
+                        PlayAudio((AudioData*) tvItem.lParam);
+                    }
                 } else if ((HWND) lParam == StopAudioButton) {
                     StopAudio();
                 } else {
@@ -456,6 +388,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
 
     // create a tree view
     treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 480, 380, mainWindow, NULL, hInstance, NULL);
+    SetWindowSubclass(treeview, TreeviewWndProc, 0, 0);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
     BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);

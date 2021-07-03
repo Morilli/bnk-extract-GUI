@@ -25,12 +25,12 @@ ifeq ($(wildcard ./.prerequisites_built),)
 endif
 
 libs := libs/libbnk-extract.a libs/libvorbis.a libs/libogg.a libs/libvorbisfile.a
-object_files := gui.o utility.o IDropTarget.o settings.o resource.res manifest.res
+object_files := gui.o utility.o IDropTarget.o settings.o treeview_extension.o resource.res manifest.res
 
 %.res : %.rc
 	windres --output-format=coff $< $@
-gui.o: IDropTarget.h resource.h utility.h
-utility.o: utility.h settings.h
+gui.o: IDropTarget.h resource.h settings.h treeview_extension.h utility.h
+utility.o: utility.h settings.h treeview_extension.h
 settings.o: settings.h resource.h
 IDropTarget.o: utility.h
 resource.res: resource.h icon.ico

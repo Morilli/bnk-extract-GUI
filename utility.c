@@ -9,6 +9,7 @@
 
 #include "utility.h"
 #include "settings.h"
+#include "treeview_extension.h"
 #include "bnk-extract/api.h"
 #include "vorbis/vorbisfile.h"
 
@@ -195,35 +196,83 @@ void SaveBnkOrWpk(HWND window, HTREEITEM root)
     }
 }
 
-void ReplaceWemData(HWND window, HTREEITEM item)
+void ReplaceWemData(HWND window)
 {
-    TVITEM tvItem = {
-        .mask = TVIF_PARAM,
-        .hItem = item
-    };
-    TreeView_GetItem(treeview, &tvItem);
+    if (!TreeView_GetSelectedCount(treeview)) return;
 
-    char fileNameBuffer[256] = {0};
+    LIST(AudioData*) selectedChildItemsDataList;
+    initialize_list(&selectedChildItemsDataList);
+    HTREEITEM currentItem = NULL;
+    while ( (currentItem = TreeView_GetNextSelected(treeview, currentItem)) ) {
+        printf("current item here: %p\n", currentItem);
+        TVITEM tvItem = {
+            .mask = TVIF_PARAM,
+            .hItem = currentItem
+        };
+        TreeView_GetItem(treeview, &tvItem);
+        if (tvItem.lParam && !TreeView_IsRootItem(currentItem)) {
+            bool found = false;
+            for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
+                if (selectedChildItemsDataList.objects[i] == (AudioData*) tvItem.lParam)
+                    found = true;
+            }
+            if (!found) add_object(&selectedChildItemsDataList, &(AudioData*) {(AudioData*) tvItem.lParam}); // add child items only
+        }
+    }
+
+    char* fileNameBuffer = malloc(UINT16_MAX);
+    fileNameBuffer[0] = '\0';
     OPENFILENAME fileNameInfo = {
         .lStructSize = sizeof(OPENFILENAME),
         .hwndOwner = window,
         .lpstrFile = fileNameBuffer,
-        .nMaxFile = 255,
-        .Flags = OFN_FILEMUSTEXIST,
+        .nMaxFile = UINT16_MAX,
+        .Flags = OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER,
         .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
     };
-    AudioData* wemData = (AudioData*) tvItem.lParam;
+
     if (GetOpenFileName(&fileNameInfo)) {
-        FILE* newDataFile = fopen(fileNameBuffer, "rb");
-        if (!newDataFile) return;
-        fseek(newDataFile, 0, SEEK_END);
-        wemData->length = ftell(newDataFile);
-        free(wemData->data);
-        wemData->data = malloc(wemData->length);
-        rewind(newDataFile);
-        fread(wemData->data, wemData->length, 1, newDataFile);
-        fclose(newDataFile);
+        uint32_t nFilesSelected = 0;
+        const char* c = fileNameInfo.lpstrFile;
+        while (*c || *(c+1)) {
+            if (!*c) nFilesSelected++;
+            c++;
+        }
+        if (nFilesSelected == 0) nFilesSelected = 1;
+        printf("nFilesSelected: %d\n", nFilesSelected);
+        if (nFilesSelected > selectedChildItemsDataList.length) {
+            char warningMessage[sizeof("Warning: 123456789A files selected, but only 123456789A are going to be used")];
+            sprintf(warningMessage, "Warning: %d files selected, but only %d are going to be used", nFilesSelected, selectedChildItemsDataList.length);
+            MessageBox(window, warningMessage, "Too many files selected!", MB_ICONWARNING);
+        } else {
+            char infoMessage[sizeof("Info: Replacing 123456789A files randomly with 123456789A")];
+            sprintf(infoMessage, "Info: Replacing %d files randomly with %d", selectedChildItemsDataList.length, nFilesSelected);
+            MessageBox(window, infoMessage, "a", 0);
+        }
+        const char* currentPosition = fileNameInfo.lpstrFile;
+        for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
+            currentPosition += strlen(currentPosition) + 1;
+            char currentFileName[PATH_MAX];
+            sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
+            printf("current file name: \"%s\"\n", currentFileName);
+            FILE* newDataFile = fopen(currentFileName, "rb");
+            if (!newDataFile) {
+                char errorMessage[sizeof("Failed to open file \"\"!\nReplacement will be inconsistent.") + strlen(currentFileName)];
+                sprintf(errorMessage, "Failed to open file \"%s\"!\nReplacement will be inconsistent.", currentFileName);
+                MessageBox(window, errorMessage, "Failed to open wem file", MB_ICONERROR);
+                continue;
+            }
+            fseek(newDataFile, 0, SEEK_END);
+            selectedChildItemsDataList.objects[i%nFilesSelected]->length = ftell(newDataFile);
+            free(selectedChildItemsDataList.objects[i%nFilesSelected]->data);
+            selectedChildItemsDataList.objects[i%nFilesSelected]->data = malloc(selectedChildItemsDataList.objects[i%nFilesSelected]->length);
+            rewind(newDataFile);
+            fread(selectedChildItemsDataList.objects[i%nFilesSelected]->data, selectedChildItemsDataList.objects[i%nFilesSelected]->length, 1, newDataFile);
+            fclose(newDataFile);
+        }
     }
+    free(fileNameBuffer);
+    free(selectedChildItemsDataList.objects);
 }
 
 static void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
@@ -261,7 +310,10 @@ static void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
             AudioData* wemData = (AudioData*) tvItem.lParam;
             BinaryData* oggData = WemToOgg(wemData);
             if (oggData) { // some rare wem files fail to convert. Just ignore them silently here; it's not worth it
-                _swprintf(current_output_path + wcslen(current_output_path) - 3, L"ogg");
+                if (oggData->length >= 4 && memcmp(oggData->data, "RIFF", 4) == 0) // it's actually wav data
+                    _swprintf(current_output_path + wcslen(current_output_path) - 3, L"wav");
+                else
+                    _swprintf(current_output_path + wcslen(current_output_path) - 3, L"ogg");
                 FILE* output_file = _wfopen(current_output_path, L"wb");
                 if (!output_file) {
                     MessageBoxW(NULL, L"Failed to open an ogg output file. Which one is still a mystery which needs to be uncovered", current_output_path, MB_ICONWARNING);
@@ -284,25 +336,36 @@ static void ExtractItems(HTREEITEM hItem, wchar_t* output_path)
     }
 }
 
-void ExtractSelectedItem(HWND parent, HTREEITEM item)
+static wchar_t* GetOpenFolderName(HWND parent)
 {
-    printf("item: %p\n", item);
     IFileDialog* pFileDialog;
     // initialize a FileOpenDialog interface
     CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, &IID_IFileOpenDialog, (void**) &pFileDialog);
     FILEOPENDIALOGOPTIONS options;
     pFileDialog->lpVtbl->GetOptions(pFileDialog, &options);
     pFileDialog->lpVtbl->SetOptions(pFileDialog, options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM); // make this dialog a folder picker
-    if (pFileDialog->lpVtbl->Show(pFileDialog, parent) != S_OK) return; // show the dialog
+    if (pFileDialog->lpVtbl->Show(pFileDialog, parent) != S_OK) return NULL; // show the dialog
     IShellItem* selectedItem;
-    pFileDialog->lpVtbl->GetResult(pFileDialog, &selectedItem); // get the user-selected item
+    pFileDialog->lpVtbl->GetResult(pFileDialog, &selectedItem); // get the user-selected item (folder)
     pFileDialog->lpVtbl->Release(pFileDialog);
     wchar_t* selectedFolder;
     selectedItem->lpVtbl->GetDisplayName(selectedItem, SIGDN_FILESYSPATH, &selectedFolder); // get the file system path from the selected item
     selectedItem->lpVtbl->Release(selectedItem);
+
+    return selectedFolder;
+}
+
+void ExtractSelectedItems(HWND parent)
+{
+    wchar_t* selectedFolder = GetOpenFolderName(parent);
+    if (!selectedFolder) return;
     printf("selected output folder: \"%ls\"\n", selectedFolder);
 
-    ExtractItems(item, selectedFolder);
+    HTREEITEM selectedItem = NULL;
+    while ( (selectedItem = TreeView_GetNextSelected(treeview, selectedItem)) ) {
+        ExtractItems(selectedItem, selectedFolder);
+    }
+
     CoTaskMemFree(selectedFolder);
 }
 
