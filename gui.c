@@ -151,17 +151,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 case NM_RCLICK: {
                     DWORD position = GetMessagePos();
-                    POINTS mousePosition = MAKEPOINTS(position);
                     HMENU hPopupMenu = CreatePopupMenu();
                     InsertMenu(hPopupMenu, 0, MF_BYPOSITION, 1, "Play audio");
                     InsertMenu(hPopupMenu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
                     InsertMenu(hPopupMenu, 2, MF_BYPOSITION, 2, "Extract selection");
                     InsertMenu(hPopupMenu, 3, MF_BYPOSITION, 3, "Replace wem data");
-                    uint64_t selectedId = TrackPopupMenu(hPopupMenu, TPM_RETURNCMD, mousePosition.x, mousePosition.y, 0, hwnd, NULL);
+                    uint64_t selectedId = TrackPopupMenu(hPopupMenu, TPM_RETURNCMD, GET_X_LPARAM(position), GET_Y_LPARAM(position), 0, hwnd, NULL);
                     switch (selectedId)
                     {
                         case 1:
-                            rightClickedItem = TreeView_PerformHitTest(position, NULL);
+                            rightClickedItem = TreeView_PerformHitTest(GET_X_LPARAM(position), GET_Y_LPARAM(position), NULL);
                             return SendMessage(PlayAudioButton, BM_CLICK, 0, 0);
                         case 2:
                             return SendMessage(ExtractButton, BM_CLICK, 0, 0);
@@ -173,7 +172,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 case NM_CLICK:
                     if (settings[ID_MULTISELECT_ENABLED-SETTINGS_OFFSET]) {
                         UINT flags;
-                        HTREEITEM hItem = TreeView_PerformHitTest(GetMessagePos(), &flags);
+                        DWORD position = GetMessagePos();
+                        HTREEITEM hItem = TreeView_PerformHitTest(GET_X_LPARAM(position), GET_Y_LPARAM(position), &flags);
                         if (hItem && (flags & TVHT_ONITEM)) return HandleMultiSelectionClick(hItem);
                     }
                     break;

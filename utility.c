@@ -186,7 +186,7 @@ void SaveBnkOrWpk(HWND window, HTREEITEM root)
     };
     if (GetSaveFileName(&fileNameInfo)) {
         char* selectedFile = fileNameInfo.lpstrFile;
-        printf("selceted file: \"%s\"\n", selectedFile);
+        printf("selected file: \"%s\"\n", selectedFile);
         if (strstr(selectedFile, ".wpk")) {
             write_wpk_file((AudioDataList*) tvItem.lParam, selectedFile);
         } else {
@@ -210,13 +210,13 @@ void ReplaceWemData(HWND window)
             .hItem = currentItem
         };
         TreeView_GetItem(treeview, &tvItem);
-        if (tvItem.lParam && !TreeView_IsRootItem(currentItem)) {
+        if (tvItem.lParam && !TreeView_IsRootItem(currentItem)) { // add child items only
             bool found = false;
             for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
                 if (selectedChildItemsDataList.objects[i] == (AudioData*) tvItem.lParam)
-                    found = true;
+                    found = true; // the same audio files can appear in the treeview multiple times, so don't use them multiple times
             }
-            if (!found) add_object(&selectedChildItemsDataList, &(AudioData*) {(AudioData*) tvItem.lParam}); // add child items only
+            if (!found) add_object(&selectedChildItemsDataList, &(AudioData*) {(AudioData*) tvItem.lParam});
         }
     }
 
@@ -414,22 +414,4 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData)
     ov_clear(&oggDataInfo);
 
     return rawPcmDataFromOgg;
-}
-
-// https://stackoverflow.com/questions/1634359/is-there-a-reverse-function-for-strstr
-char* rstrstr(const char* haystack, const char* needle)
-{
-    if (*needle == '\0')
-        return (char*) haystack;
-
-    char* result = NULL;
-    while (true) {
-        char* p = strstr(haystack, needle);
-        if (p == NULL)
-            break;
-        result = p;
-        haystack = p + 1;
-    }
-
-    return result;
 }

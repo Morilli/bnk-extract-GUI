@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <shlobj.h>
 
+#include "treeview_extension.h"
 #include "utility.h"
 #include "bnk-extract/defs.h"
 
@@ -99,17 +100,7 @@ static HRESULT STDMETHODCALLTYPE DragOver(IDropTarget* This, DWORD grfKeyState, 
 
     // early return in case DragEnter determined that this data is not drag-drop supported
     if (!idropTarget->dragValid) return S_OK;
-    printf("x: %ld, y: %ld\n", pt.x, pt.y);
-    // The POINT structure is identical to the POINTL structure.
-    POINT point = {
-        .x = pt.x,
-        .y = pt.y
-    };
-    printf("screentoclient return: %d\n", ScreenToClient(treeview, &point));
-    printf("x: %ld, y: %ld\n", point.x, point.y);
-    TVHITTESTINFO hitTestInfo = {.pt = point};
-    HTREEITEM hoveredItem = TreeView_HitTest(treeview, &hitTestInfo);
-    printf("hovered Item: %p\n", hoveredItem);
+    HTREEITEM hoveredItem = TreeView_PerformHitTest(pt.x, pt.y, NULL);
     if (hoveredItem) *pdwEffect = DROPEFFECT_COPY;
 
     return S_OK;
@@ -167,13 +158,14 @@ static HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, 
                     UINT fileNameSize = DragQueryFile(hDropInfo, index, NULL, 0);
                     char fileNameBuffer[fileNameSize + 1];
                     DragQueryFile(hDropInfo, index, fileNameBuffer, fileNameSize + 1);
-                    uint32_t current_file_id = strtol(rstrstr(fileNameBuffer, "\\") + 1, NULL, 0);
+                    uint32_t current_file_id = strtol(strrchr(fileNameBuffer, '\\') + 1, NULL, 0);
                     AudioData* wemData = NULL;
                     printf("wemDataList: %p\n", wemDataList);
                     printf("length of list: %llu\n", wemDataList->length);
                     for (uint32_t i = 0; i < wemDataList->length; i++) {
                         printf("objects[%d]: %u\n", i, wemDataList->objects[i].id);
                     }
+                    // relies on the fact this list is inherently sorted, which it always is in practice.
                     find_object_s(wemDataList, wemData, id, current_file_id);
                     printf("wemData: %p\n", wemData);
                     if (wemData) {

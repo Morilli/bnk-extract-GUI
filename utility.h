@@ -23,6 +23,4 @@ void* FillProgressBar(void* _args);
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
-char* rstrstr(const char* haystack, const char* needle);
-
 #endif

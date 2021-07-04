@@ -4,10 +4,9 @@
 
 HWND treeview;
 
-HTREEITEM TreeView_PerformHitTest(DWORD screenPosition, UINT* outFlags)
+HTREEITEM TreeView_PerformHitTest(int screenX, int screenY, UINT* outFlags)
 {
-    POINTS mousePosition = MAKEPOINTS(screenPosition);
-    POINT point = {.x = mousePosition.x, .y = mousePosition.y};
+    POINT point = {.x = screenX, .y = screenY};
     ScreenToClient(treeview, &point);
     TVHITTESTINFO hitTestInfo = {.pt = point};
     HTREEITEM hItem = TreeView_HitTest(treeview, &hitTestInfo);

@@ -32,7 +32,7 @@ object_files := gui.o utility.o IDropTarget.o settings.o treeview_extension.o re
 gui.o: IDropTarget.h resource.h settings.h treeview_extension.h utility.h
 utility.o: utility.h settings.h treeview_extension.h
 settings.o: settings.h resource.h
-IDropTarget.o: utility.h
+IDropTarget.o: treeview_extension.h utility.h
 resource.res: resource.h icon.ico
 manifest.res: gui.exe.manifest
 

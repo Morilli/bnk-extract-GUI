@@ -5,7 +5,7 @@ extern HWND treeview;
 
 #define TreeView_IsRootItem(hItem) !TreeView_GetParent(treeview, hItem)
 
-HTREEITEM TreeView_PerformHitTest(DWORD screenPosition, UINT* outFlags);
+HTREEITEM TreeView_PerformHitTest(int screenX, int screenY, UINT* outFlags);
 
 void TreeView_ClearAllSelectedItems();
 
