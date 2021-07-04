@@ -236,11 +236,12 @@ void ReplaceWemData(HWND window)
     if (GetOpenFileName(&fileNameInfo)) {
         uint32_t nFilesSelected = 0;
         const char* c = fileNameInfo.lpstrFile;
+        if (selectedChildItemsDataList.length > 1)
         while (*c || *(c+1)) {
             if (!*c) nFilesSelected++;
             c++;
         }
-        if (nFilesSelected == 0) nFilesSelected = 1;
+        else nFilesSelected = 1;
         printf("nFilesSelected: %d\n", nFilesSelected);
         if (nFilesSelected > selectedChildItemsDataList.length) {
             char warningMessage[sizeof("Warning: 123456789A files selected, but only 123456789A are going to be used")];
