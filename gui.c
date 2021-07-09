@@ -214,12 +214,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 }
             }
             break;
-        case WM_CLOSE: {
-            OleUninitialize();
-            DestroyWindow(hwnd);
-            return 0;
-        }
         case WM_DESTROY:
+            RevokeDragDrop(treeview);
+            OleUninitialize();
             PostQuitMessage(0);
             return 0;
         case WM_COMMAND:
@@ -330,8 +327,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     TreeView_GetItem(treeview, &tvItem);
                     if (OpenClipboard(hwnd)) {
                         EmptyClipboard();
-                        char* clipboardText = strdup(tvItem.pszText); // i think the system frees this itself... at some point
-                        SetClipboardData(CF_TEXT, clipboardText);
+                        HANDLE clipboardTextHandle = GlobalAlloc(GMEM_MOVEABLE, strlen(tvItem.pszText) + 1);
+                        strcpy(GlobalLock(clipboardTextHandle), tvItem.pszText);
+                        GlobalUnlock(clipboardTextHandle);
+                        SetClipboardData(CF_TEXT, clipboardTextHandle);
                         CloseClipboard();
                     }
                 }
@@ -418,7 +417,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     UpdateWindow(mainWindow);
 
     IDropTarget* dropTargetImplementation = CreateIDropTarget(treeview);
-    RegisterDragDrop(mainWindow, dropTargetImplementation);
+    RegisterDragDrop(treeview, dropTargetImplementation);
     dropTargetImplementation->lpVtbl->Release(dropTargetImplementation);
 
     // Step 3: The Message Loop
