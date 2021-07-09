@@ -24,7 +24,6 @@ ww2ogg_OBJECTS=ww2ogg/ww2ogg.o ww2ogg/wwriff.o ww2ogg/codebook.o ww2ogg/crc.o
 
 ww2ogg/ww2ogg.o: $(WWRIFF_HEADERS) defs.h general_utils.h
 ww2ogg/wwriff.o: ww2ogg/codebook.hpp $(WWRIFF_HEADERS) defs.h
-ww2ogg/codebook.o: CXXFLAGS:=$(CXXFLAGS) -O2 # not sure why this is necessary; a lto bug perhaps? surely does not link with -Os tho
 ww2ogg/codebook.o: ww2ogg/codebook.hpp $(BIT_STREAM_HEADERS) defs.h
 ww2ogg/crc.o: ww2ogg/crc.h
 

@@ -37,8 +37,9 @@ resource.res: resource.h icon.ico
 manifest.res: gui.exe.manifest
 
 
+# codebook.o shouldn't be hardcoded here, but linking fails otherwise
 $(target): $(object_files) .prerequisites_built
-	$(CXX) $(CXXFLAGS) $^ $(libs) $(LDFLAGS) -o $@
+	$(CXX) $(CXXFLAGS) $^ bnk-extract/ww2ogg/codebook.o $(libs) $(LDFLAGS) -o $@
 
 
 clean:
