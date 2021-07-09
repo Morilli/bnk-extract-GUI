@@ -215,6 +215,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
             break;
         case WM_DESTROY:
+            StopAudio();
             RevokeDragDrop(treeview);
             OleUninitialize();
             PostQuitMessage(0);
@@ -281,9 +282,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 } else if ((HWND) lParam == ReplaceButton) {
                     ReplaceWemData(hwnd);
                 } else if ((HWND) lParam == PlayAudioButton) {
-                    HTREEITEM selectedItem = (TreeView_GetSelectedCount(treeview) > 1)
+                    HTREEITEM selectedItem = rightClickedItem
                         ? rightClickedItem
-                        : TreeView_GetSelection(treeview);
+                        : TreeView_GetSelectedCount(treeview) == 1
+                            ? TreeView_GetSelection(treeview)
+                            : NULL;
                     rightClickedItem = NULL;
                     if (selectedItem && !TreeView_IsRootItem(selectedItem)) {
                         TVITEM tvItem = {
