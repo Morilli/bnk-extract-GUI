@@ -257,11 +257,16 @@ void ReplaceWemData(HWND window)
         for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
             if (i % nFilesSelected == 0)
                 currentPosition = fileNameInfo.lpstrFile;
-            currentPosition += strlen(currentPosition) + 1;
-            char currentFileName[PATH_MAX];
-            sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
-            printf("current file name: \"%s\"\n", nFilesSelected == 1 ? fileNameInfo.lpstrFile : currentFileName);
-            FILE* newDataFile = fopen(nFilesSelected == 1 ? fileNameInfo.lpstrFile : currentFileName, "rb");
+            char* currentFileName;
+            if (nFilesSelected == 1) {
+                currentFileName = fileNameInfo.lpstrFile;
+            } else {
+                currentPosition += strlen(currentPosition) + 1;
+                currentFileName = alloca(UNICODE_STRING_MAX_BYTES+1); // assuming long paths and utf-8 are enabled, this might be correct? idc
+                sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
+            }
+            printf("current file name: \"%s\"\n", currentFileName);
+            FILE* newDataFile = fopen(currentFileName, "rb");
             if (!newDataFile) {
                 if (nFilesSelected == 1) break;
                 char errorMessage[sizeof("Failed to open file \"\"!\nReplacement will be inconsistent.") + strlen(currentFileName)];
