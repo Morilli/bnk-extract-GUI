@@ -76,7 +76,7 @@ public:
 
     void generate_ogg(BinaryData& bd);
     void generate_wav_header(BinaryData& bd);
-    void generate_ogg_header(Bit_oggstream& os, bool * & mode_blockflag, int & mode_bits);
+    void generate_ogg_header(Bit_oggstream& os);
     void generate_ogg_header_with_triad(Bit_oggstream& os);
 };
 
