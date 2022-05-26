@@ -1,0 +1,13 @@
+diff --git a/bnk-extract/ww2ogg/Bit_stream.hpp b/bnk-extract/ww2ogg/Bit_stream.hpp
+index 25d2171..37e715e 100644
+--- a/bnk-extract/ww2ogg/Bit_stream.hpp
++++ b/bnk-extract/ww2ogg/Bit_stream.hpp
+@@ -341,7 +341,7 @@ public:
+             throw Too_many_bits();
+     }
+ 
+-    explicit Bit_uint(unsigned int v) : total(v) {
++    __attribute__((always_inline)) explicit Bit_uint(unsigned int v) : total(v) {
+         if (BIT_SIZE > static_cast<unsigned int>(std::numeric_limits<unsigned int>::digits))
+             throw Too_many_bits();
+         if ((v >> (BIT_SIZE-1U)) > 1U)
