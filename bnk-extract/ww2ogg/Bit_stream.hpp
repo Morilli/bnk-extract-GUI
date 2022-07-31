@@ -336,19 +336,20 @@ public:
     class Too_many_bits {};
     class Int_too_big {};
 
-    Bit_uint() : total(0) {
+    // *sigh* this is done to workaround a gcc bug, see https://github.com/msys2/MINGW-packages/issues/11726
+    __attribute__((always_inline)) Bit_uint() : total(0) {
         if (BIT_SIZE > static_cast<unsigned int>(std::numeric_limits<unsigned int>::digits))
             throw Too_many_bits();
     }
 
-    explicit Bit_uint(unsigned int v) : total(v) {
+    __attribute__((always_inline)) explicit Bit_uint(unsigned int v) : total(v) {
         if (BIT_SIZE > static_cast<unsigned int>(std::numeric_limits<unsigned int>::digits))
             throw Too_many_bits();
         if ((v >> (BIT_SIZE-1U)) > 1U)
             throw Int_too_big();
     }
 
-    Bit_uint& operator = (unsigned int v) {
+    __attribute__((always_inline)) Bit_uint& operator = (unsigned int v) {
         if ((v >> (BIT_SIZE-1U)) > 1U)
             throw Int_too_big();
         total = v;
@@ -357,7 +358,7 @@ public:
 
     operator unsigned int() const { return total; }
 
-    friend Bit_stream& operator >> (Bit_stream& bstream, Bit_uint& bui) {
+    __attribute__((always_inline)) friend Bit_stream& operator >> (Bit_stream& bstream, Bit_uint& bui) {
         bui.total = 0;
         for ( unsigned int i = 0; i < BIT_SIZE; i++) {
             if ( bstream.get_bit() ) bui.total |= (1U << i);
@@ -365,7 +366,7 @@ public:
         return bstream;
     }
 
-    friend Bit_oggstream& operator << (Bit_oggstream& bstream, const Bit_uint& bui) {
+    __attribute__((always_inline)) friend Bit_oggstream& operator << (Bit_oggstream& bstream, const Bit_uint& bui) {
         for ( unsigned int i = 0; i < BIT_SIZE; i++) {
             bstream.put_bit((bui.total & (1U << i)) != 0);
         }
@@ -382,19 +383,19 @@ public:
     class Too_many_bits {};
     class Int_too_big {};
 
-    explicit Bit_uintv(unsigned int s) : size(s), total(0) {
+    __attribute__((always_inline)) explicit Bit_uintv(unsigned int s) : size(s), total(0) {
         if (s > static_cast<unsigned int>(std::numeric_limits<unsigned int>::digits))
             throw Too_many_bits();
     }
 
-    Bit_uintv(unsigned int s, unsigned int v) : size(s), total(v) {
+    __attribute__((always_inline)) Bit_uintv(unsigned int s, unsigned int v) : size(s), total(v) {
         if (size > static_cast<unsigned int>(std::numeric_limits<unsigned int>::digits))
             throw Too_many_bits();
         if ((v >> (size-1U)) > 1U)
             throw Int_too_big();
     }
 
-    Bit_uintv& operator = (unsigned int v) {
+    __attribute__((always_inline)) Bit_uintv& operator = (unsigned int v) {
         if ((v >> (size-1U)) > 1U)
             throw Int_too_big();
         total = v;
@@ -403,7 +404,7 @@ public:
 
     operator unsigned int() const { return total; }
 
-    friend Bit_stream& operator >> (Bit_stream& bstream, Bit_uintv& bui) {
+    __attribute__((always_inline)) friend Bit_stream& operator >> (Bit_stream& bstream, Bit_uintv& bui) {
         bui.total = 0;
         for ( unsigned int i = 0; i < bui.size; i++) {
             if ( bstream.get_bit() ) bui.total |= (1U << i);
@@ -411,7 +412,7 @@ public:
         return bstream;
     }
 
-    friend Bit_oggstream& operator << (Bit_oggstream& bstream, const Bit_uintv& bui) {
+    __attribute__((always_inline)) friend Bit_oggstream& operator << (Bit_oggstream& bstream, const Bit_uintv& bui) {
         for ( unsigned int i = 0; i < bui.size; i++) {
             bstream.put_bit((bui.total & (1U << i)) != 0);
         }
