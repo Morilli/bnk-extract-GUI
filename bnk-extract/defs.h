@@ -49,7 +49,8 @@ typedef struct {
 #else
     #define dprintf(...)
 #endif
-#define eprintf(...) fprintf(stderr, __VA_ARGS__)
+extern FILE* consoleless_stderr;
+#define eprintf(...) fprintf(consoleless_stderr ? consoleless_stderr : stderr, __VA_ARGS__)
 #define v_printf(level, ...) if (VERBOSE >= level) printf(__VA_ARGS__)
 
 #ifdef __cplusplus

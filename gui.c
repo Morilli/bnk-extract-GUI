@@ -14,6 +14,8 @@
 #include "treeview_extension.h"
 #include "bnk-extract/api.h"
 
+FILE* consoleless_stderr;
+
 // global window variables
 static HINSTANCE me;
 static HWND mainWindow;
@@ -250,6 +252,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     // redirect stderr to a temporary file, in order to be able to read it back and display later
                     FILE* temp_file = tmpfile();
                     dup2(fileno(temp_file), STDERR_FILENO);
+                    if (fileno(stderr) == -2) { // no console, but we still want to capture stderr
+                        consoleless_stderr = temp_file;
+                    }
                     WemInformation* wemInformation = bnk_extract(onlyAudioGiven ? 3 : 7, bnk_extract_args);
                     free(binPath); free(audioPath); free(eventsPath);
                     if (wemInformation) {
@@ -268,6 +273,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         MessageBox(mainWindow, stderr_buffer, "Failed to read audio files", MB_ICONERROR);
                     }
                     fclose(temp_file);
+                    consoleless_stderr = NULL;
                     // restore stderr
                     dup2(duped_stderr, STDERR_FILENO);
                 } else if ((HWND) lParam == XButton) {
