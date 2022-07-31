@@ -249,6 +249,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     GetWindowText(EventsTextBox, eventsPath, sizeof(eventsPath));
                     bool onlyAudioGiven = *audioPath && !*binPath && !*eventsPath;
                     char** bnk_extract_args = onlyAudioGiven ? (char*[]) {"", "-a", audioPath, NULL} : (char*[]) {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, NULL};
+                    int duped_stderr = dup(STDERR_FILENO);
+                    // redirect stderr to a temporary file, in order to be able to read it back and display later
+                    FILE* temp_file = tmpfile();
+                    dup2(fileno(temp_file), STDERR_FILENO);
                     WemInformation* wemInformation = bnk_extract(onlyAudioGiven ? 3 : 7, bnk_extract_args);
                     if (wemInformation) {
                         wemInformation->grouped_wems->wemData = (AudioData*) wemInformation->sortedWemDataList;
@@ -257,9 +261,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         free(wemInformation->grouped_wems);
                         free(wemInformation);
                     } else {
-                        MessageBox(mainWindow, "An error occured while parsing the provided audio files. Most likely you provided none or not the correct files.\n"
-                        "If there was a log window you could actually read the error message LOL", "Failed to read audio files", MB_ICONERROR);
+                        int stderr_length = ftell(temp_file);
+                        rewind(temp_file);
+                        char* stderr_buffer = malloc(stderr_length);
+                        int stderr_read = fread(stderr_buffer, 1, stderr_length, temp_file);
+                        stderr_buffer[stderr_read] = '\0';
+
+                        MessageBox(mainWindow, stderr_buffer, "Failed to read audio files", MB_ICONERROR);
                     }
+                    fclose(temp_file);
+                    // restore stderr
+                    dup2(duped_stderr, STDERR_FILENO);
                 } else if ((HWND) lParam == XButton) {
                     // Button_Enable(ExtractButton, false);
                     Button_Enable(SaveButton, false);
