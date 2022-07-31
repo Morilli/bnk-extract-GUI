@@ -27,6 +27,16 @@ static HTREEITEM rightClickedItem;
 
 void PlayAudio(AudioData* wemData)
 {
+    // Ideally this dll would be linked compile-time and just the normal "PlaySound" function would be used.
+    // However, this causes a delayed startup by taking an additional ~0.6 seconds the first time a button is created.
+    // I have no idea why that is, but by not having it loaded on startup, this seems to fix it.
+    HMODULE winmm = LoadLibrary("winmm.dll");
+    WINBOOL (*PlaySoundFunc)(LPCSTR pszSound, HMODULE hmod, DWORD fdwSound);
+    if (!winmm || !(PlaySoundFunc = (void*) GetProcAddress(winmm, "PlaySound")) ) {
+        // probably not worth a messagebox, this shouldn't happen anyways
+        // MessageBox(mainWindow, "Initializing sound engine failed.\n", "Sound initialization failure", MB_ICONERROR);
+        return;
+    }
     BinaryData* oggData = WemToOgg(wemData);
     if (oggData) {
         ReadableBinaryData readableOggData = {
@@ -34,13 +44,13 @@ void PlayAudio(AudioData* wemData)
             .size = oggData->length
         };
         uint8_t* pcmData = WavFromOgg(&readableOggData);
-        PlaySound(NULL, NULL, 0); // cancel all playing sounds
+        PlaySoundFunc(NULL, NULL, 0); // cancel all playing sounds
         free(oldPcmData);
         if (!pcmData) { // conversion failed, so assume it is already wav data (e.g. malzahar skin06 recall_leadin)
-            PlaySound((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
+            PlaySoundFunc((char*) oggData->data, me, SND_MEMORY | SND_ASYNC);
             oldPcmData = oggData->data;
         } else {
-            PlaySound((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
+            PlaySoundFunc((char*) pcmData, me, SND_MEMORY | SND_ASYNC);
             oldPcmData = pcmData;
             free(oggData->data);
         }
@@ -49,11 +59,19 @@ void PlayAudio(AudioData* wemData)
         MessageBox(mainWindow, "Conversion from wem->ogg failed.\n"
         "This shouldn't happen and usually indicates a broken wem file.", "Conversion failure", MB_ICONINFORMATION);
     }
+
+    FreeLibrary(winmm);
 }
 
 void StopAudio()
 {
-    PlaySound(NULL, NULL, 0); // cancel all playing sounds
+    HMODULE winmm = LoadLibrary("winmm.dll");
+    if (winmm) {
+         WINBOOL (*PlaySoundFunc)(LPCSTR pszSound, HMODULE hmod, DWORD fdwSound) = (void*) GetProcAddress(winmm, "PlaySound");
+
+        if (PlaySoundFunc) PlaySoundFunc(NULL, NULL, 0); // cancel all playing sounds
+        FreeLibrary(winmm);
+    }
     free(oldPcmData);
     oldPcmData = NULL;
 }
