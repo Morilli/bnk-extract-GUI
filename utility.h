@@ -23,4 +23,6 @@ void* FillProgressBar(void* _args);
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
+char* GetPathFromTextBox(HWND textBox);
+
 #endif

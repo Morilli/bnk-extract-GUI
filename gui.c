@@ -241,12 +241,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_COMMAND:
             if (lParam && HIWORD(wParam) == BN_CLICKED) {
                 if ((HWND) lParam == GoButton) {
-                    char binPath[GetWindowTextLength(BinTextBox)+1];
-                    char audioPath[GetWindowTextLength(AudioTextBox)+1];
-                    char eventsPath[GetWindowTextLength(EventsTextBox)+1];
-                    GetWindowText(BinTextBox, binPath, sizeof(binPath));
-                    GetWindowText(AudioTextBox, audioPath, sizeof(audioPath));
-                    GetWindowText(EventsTextBox, eventsPath, sizeof(eventsPath));
+                    char* binPath = GetPathFromTextBox(BinTextBox);
+                    char* audioPath = GetPathFromTextBox(AudioTextBox);
+                    char* eventsPath = GetPathFromTextBox(EventsTextBox);
                     bool onlyAudioGiven = *audioPath && !*binPath && !*eventsPath;
                     char** bnk_extract_args = onlyAudioGiven ? (char*[]) {"", "-a", audioPath, NULL} : (char*[]) {"", "-b", binPath, "-a", audioPath, "-e", eventsPath, NULL};
                     int duped_stderr = dup(STDERR_FILENO);
@@ -254,6 +251,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     FILE* temp_file = tmpfile();
                     dup2(fileno(temp_file), STDERR_FILENO);
                     WemInformation* wemInformation = bnk_extract(onlyAudioGiven ? 3 : 7, bnk_extract_args);
+                    free(binPath); free(audioPath); free(eventsPath);
                     if (wemInformation) {
                         wemInformation->grouped_wems->wemData = (AudioData*) wemInformation->sortedWemDataList;
                         InsertStringToTreeview(wemInformation->grouped_wems, TVI_ROOT);

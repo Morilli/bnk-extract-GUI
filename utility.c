@@ -422,3 +422,20 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 
     return rawPcmDataFromOgg;
 }
+
+char* GetPathFromTextBox(HWND textBox)
+{
+    int text_length = GetWindowTextLength(textBox);
+    char* path = malloc(text_length + 1);
+    GetWindowText(textBox, path, text_length + 1);
+    char* path_start = path;
+    char* path_end = path + text_length;
+    while(*path_start == ' ' || *path_start == '"') path_start++;
+    while (*path_end == ' ' || *path_end == '"' || *path_end == '\0') {
+        *path_end = '\0';
+        path_end--;
+    }
+    memmove(path, path_start, path_end - path_start + 2);
+
+    return path;
+}
