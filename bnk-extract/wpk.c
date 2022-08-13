@@ -90,6 +90,7 @@ WemInformation* parse_wpk_file(char* wpk_path, StringHashes* string_hashes)
             .data = wpkfile.wpk_file_entries[i].data
         };
     }
+    sort_static_list(wem_information->sortedWemDataList, id);
 
     for (uint32_t i = 0; i < wpkfile.file_count; i++) {
         free(wpkfile.wpk_file_entries[i].filename);

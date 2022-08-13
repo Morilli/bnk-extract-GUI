@@ -93,6 +93,7 @@ WemInformation* parse_audio_bnk_file(char* bnk_path, StringHashes* string_hashes
             .data = bnkfile.entries[i].data
         };
     }
+    sort_static_list(wem_information->sortedWemDataList, id);
 
     free(bnkfile.entries);
 

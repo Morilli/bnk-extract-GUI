@@ -165,7 +165,6 @@ static HRESULT STDMETHODCALLTYPE Drop(IDropTarget* This, IDataObject* pDataObj, 
                     for (uint32_t i = 0; i < wemDataList->length; i++) {
                         printf("objects[%d]: %u\n", i, wemDataList->objects[i].id);
                     }
-                    // relies on the fact this list is inherently sorted, which it always is in practice.
                     find_object_s(wemDataList, wemData, id, current_file_id);
                     printf("wemData: %p\n", wemData);
                     if (wemData) {
