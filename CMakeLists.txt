@@ -28,4 +28,4 @@ file(GLOB BNK_EXTRACT_GUI_SRC CMAKE_CONFIGURE_DEPENDS *.c *.h *.rc)
 
 add_executable(bnk-extract-GUI WIN32 ${BNK_EXTRACT_SRC} ${BNK_EXTRACT_GUI_SRC})
 target_link_libraries(bnk-extract-GUI PRIVATE ogg vorbis vorbisenc vorbisfile)
-target_link_libraries(bnk-extract-GUI PRIVATE ole32 uuid comctl32 gdi32 comdlg32 winmm)
+target_link_libraries(bnk-extract-GUI PRIVATE ole32 uuid comctl32 gdi32 comdlg32)
