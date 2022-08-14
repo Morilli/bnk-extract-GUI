@@ -31,7 +31,8 @@ Whether .wem files are extracted as is or converted to .ogg format beforehand ca
 
 
 # Building
-To build, I recommend using the msys/mingw toolchain. A simple `make` call in the root directory should be enough to build the project.
+To build, I recommend using the msys/mingw toolchain. Build dependencies for the makefile-based build are `make`, `cmake` and `ninja`.
+ A simple `make` call in the root directory should be enough to build the project.
 Alternatively, `cmake` can be used as normal as well.
 As this project uses the winapi, it can only be compiled on/for windows platforms.
 For releases, I'm using an additional `-mwindows` linker command to make the program run console-less (just the window).
