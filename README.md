@@ -1,4 +1,35 @@
-# bnk-extract GUI
+<h1  align="center">
+
+bnk-extract GUI 👾
+
+</h1>
+
+<p  align="center">
+    <a  href="#tecnologias">Technologies</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+    <a  href="#projeto">Project</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+    <a  href="#rodando">Usage</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+    <a  href="#Building">Building</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+    <a  href="#como-contribuir">How to contribute</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+    <a  href="#license">License</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+</p>
+
+<a  id="tecnologias"></a>
+
+## Technologies 🖥️
+
+<div  align="center">
+
+<img  src="https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white"  />
+<img  src="https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white"  />
+<img  src="https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white"  />
+<img  src="https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white"  />
+<img  src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white"  />
+
+</div>
+
+<a  id="projeto"></a>
+
+## Project 📕
 
 An attempt at making a somewhat competently looking gui for my bnk-extract program (see https://github.com/Morilli/bnk-extract).
 
@@ -6,7 +37,7 @@ Written in plain C without any libraries so if something looks dumb or it crashe
 
 The most current release can be found here: https://github.com/Morilli/bnk-extract-GUI/releases/latest.
 
-<a id="rodando"></a>
+<a  id="rodando"></a>
 
 ## Usage 🚀
 
@@ -44,10 +75,43 @@ and using the `Extract selection` button.
 
 Whether .wem files are extracted as is or converted to .ogg format beforehand can be configured in the settings.
 
+<a  id="Building"></a>
+
+## Building
+
+To build, I recommend using the msys/mingw toolchain. A simple `make` call in the root directory should be enough to build the project.
+
 
 # Building
-To build, I recommend using the msys/mingw toolchain. A simple `make` call in the root directory should be enough to build the project.
+
+To build, I recommend using the msys/mingw toolchain. Build dependencies for the makefile-based build are `make`, `cmake` and `ninja`.
+
+A simple `make` call in the root directory should be enough to build the project.
+
+a49f29e6da79b6a8df4123b120a4791f3ee785c2
+
 Alternatively, `cmake` can be used as normal as well.
+
 As this project uses the winapi, it can only be compiled on/for windows platforms.
 
 For releases, I'm using an additional `-mwindows` linker command to make the program run console-less (just the window).
+
+<a  id="como-contribuir"></a>
+
+## 🤔 How to contribute
+
+- Fork this repository;
+
+- Create a branch with your feature: `git checkout -b my-feature`;
+
+- Commit your changes: `git commit -m 'feat: My new feature'`;
+
+- Push to your branch: `git push origin my-feature`.
+
+After your pull request is merged, you can delete your branch.
+
+<a  id="license"></a>
+
+### 🔖 license
+
+If you want to check the project's license, just look at this file [LICENSE](./LICENSE.txt)
