@@ -43,26 +43,38 @@ void parse_offsets(FILE* wpk_file, struct WPKFile* wpkfile)
 
 void parse_data(FILE* wpk_file, struct WPKFile* wpkfile)
 {
-    wpkfile->wpk_file_entries = malloc(wpkfile->file_count * sizeof(struct WPKFileEntry));
+    int real_file_count = 0;
     for (uint32_t i = 0; i < wpkfile->offset_amount; i++) {
-        fseek(wpk_file, wpkfile->offsets[i], SEEK_SET);
+        if (wpkfile->offsets[i] != 0) // riot with their padding bytes :)
+            real_file_count++;
+    }
+    wpkfile->file_count = real_file_count;
 
-        assert(fread(&wpkfile->wpk_file_entries[i].data_offset, 4, 1, wpk_file) == 1);
-        assert(fread(&wpkfile->wpk_file_entries[i].data_length, 4, 1, wpk_file) == 1);
+    wpkfile->wpk_file_entries = malloc(wpkfile->file_count * sizeof(struct WPKFileEntry));
+    int real_index = 0;
+    for (uint32_t i = 0; i < wpkfile->offset_amount; i++, real_index++) {
+        if (wpkfile->offsets[i] == 0) {
+            real_index--;
+            continue;
+        }
+        fseek(wpk_file, wpkfile->offsets[real_index], SEEK_SET);
+
+        assert(fread(&wpkfile->wpk_file_entries[real_index].data_offset, 4, 1, wpk_file) == 1);
+        assert(fread(&wpkfile->wpk_file_entries[real_index].data_length, 4, 1, wpk_file) == 1);
 
         int filename_size;
         assert(fread(&filename_size, 4, 1, wpk_file) == 1);
-        wpkfile->wpk_file_entries[i].filename = malloc(filename_size + 1);
+        wpkfile->wpk_file_entries[real_index].filename = malloc(filename_size + 1);
         for (int j = 0; j < filename_size; j++) {
-            wpkfile->wpk_file_entries[i].filename[j] = getc(wpk_file);
+            wpkfile->wpk_file_entries[real_index].filename[j] = getc(wpk_file);
             fseek(wpk_file, 1, SEEK_CUR);
         }
-        wpkfile->wpk_file_entries[i].filename[filename_size] = '\0';
-        dprintf("string: \"%s\"\n", wpkfile->wpk_file_entries[i].filename);
+        wpkfile->wpk_file_entries[real_index].filename[filename_size] = '\0';
+        dprintf("string: \"%s\"\n", wpkfile->wpk_file_entries[real_index].filename);
 
-        wpkfile->wpk_file_entries[i].data = malloc(wpkfile->wpk_file_entries[i].data_length);
-        fseek(wpk_file, wpkfile->wpk_file_entries[i].data_offset, SEEK_SET);
-        assert(fread(wpkfile->wpk_file_entries[i].data, 1, wpkfile->wpk_file_entries[i].data_length, wpk_file) == wpkfile->wpk_file_entries[i].data_length);
+        wpkfile->wpk_file_entries[real_index].data = malloc(wpkfile->wpk_file_entries[real_index].data_length);
+        fseek(wpk_file, wpkfile->wpk_file_entries[real_index].data_offset, SEEK_SET);
+        assert(fread(wpkfile->wpk_file_entries[real_index].data, 1, wpkfile->wpk_file_entries[real_index].data_length, wpk_file) == wpkfile->wpk_file_entries[real_index].data_length);
     }
 }
 
