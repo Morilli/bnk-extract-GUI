@@ -12,6 +12,9 @@
 int VERBOSE = 0;
 
 // http://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
+
+// almost full documentation of all types and versions: https://github.com/bnnm/wwiser
+
 struct sound {
     uint32_t self_id;
     uint32_t file_id;
@@ -111,43 +114,57 @@ int read_random_container_object(FILE* bnk_file, RandomContainerSection* random_
     assert(fread(&new_random_container_object.self_id, 4, 1, bnk_file) == 1);
     dprintf("at the beginning: %ld\n", ftell(bnk_file));
     fseek(bnk_file, 1, SEEK_CUR);
-    uint8_t unk = getc(bnk_file);
-    fseek(bnk_file, 5 + (unk != 0) + (unk * 7) - (bnk_version == 0x58), SEEK_CUR);
+    uint8_t num_fx = getc(bnk_file);
+    fseek(bnk_file, 5 + (num_fx != 0) - (bnk_version <= 0x59) + (num_fx * 7), SEEK_CUR);
     dprintf("reading in switch container id at position %ld\n", ftell(bnk_file));
     assert(fread(&new_random_container_object.switch_container_id, 4, 1, bnk_file) == 1);
-    if (bnk_version == 0x58) {
-        while(getc(bnk_file) != '\x7a' || getc(bnk_file) != '\x44');
-        fseek(bnk_file, 18, SEEK_CUR);
-    } else {
-    fseek(bnk_file, 1, SEEK_CUR);
-    uint8_t unk2 = getc(bnk_file);
-    if (unk2 != 0) {
-        dprintf("offset here: %ld, unk2: %d\n", ftell(bnk_file), unk2);
-        fseek(bnk_file, 5 * unk2, SEEK_CUR);
+    fseek(bnk_file, (bnk_version <= 0x59 ? 2 : 1), SEEK_CUR);
+    uint8_t prop_count = getc(bnk_file);
+    fseek(bnk_file, 5 * prop_count, SEEK_CUR);
+    prop_count = getc(bnk_file);
+    fseek(bnk_file, 9 * prop_count, SEEK_CUR);
+    uint8_t positioning_bits = getc(bnk_file);
+    bool has_positioning = positioning_bits & 1, has_3d = false, has_automation = false;
+    if (has_positioning) {
+        if (bnk_version <= 0x59) {
+            bool has_2d = getc(bnk_file);
+            has_3d = getc(bnk_file);
+            if (has_2d) getc(bnk_file);
+        } else {
+            has_3d = positioning_bits & 0x2;
+        }
     }
-    uint8_t unk3 = getc(bnk_file);
-    dprintf("unk3: %d\n", unk3);
-    fseek(bnk_file, 9 * unk3, SEEK_CUR);
-    fseek(bnk_file, 9 + (getc(bnk_file) > 1), SEEK_CUR);
-    dprintf("where am i? %ld\n", ftello(bnk_file));
-    uint8_t unk4 = getc(bnk_file);
-    dprintf("unk4: %d\n", unk4);
-    if (unk4 > 1) { // skip this object, because I don't understand the format
-        // examples: ashe skin23 sfx, ivern skin1 sfx, rammus skin6 and 16 sfx, yasuo skin17 sfx with unk4 = 2, and gangplank 8+ with unk4 = 56???
-        v_printf(2, "Info: Skipping object because I can't read it lol.\n");
-        return -1;
+    if (has_positioning && has_3d) {
+        if (bnk_version <= 0x59) {
+            has_automation = (getc(bnk_file) & 3) != 1;
+            fseek(bnk_file, 8, SEEK_CUR);
+        } else {
+            has_automation = (positioning_bits >> 5) & 3;
+            getc(bnk_file);
+        }
     }
-    int to_seek = 25;
-    if (unk4) {
-        fseek(bnk_file, 13, SEEK_CUR);
-        uint8_t unk5 = getc(bnk_file);
-        dprintf("unk5: %d\n", unk5);
-        to_seek += 12 * unk5;
+    if (has_automation) {
+        fseek(bnk_file, (bnk_version <= 0x59 ? 9 : 5), SEEK_CUR);
+        uint32_t num_vertices;
+        assert(fread(&num_vertices, 4, 1, bnk_file) == 1);
+        fseek(bnk_file, 16 * num_vertices, SEEK_CUR);
+        uint32_t num_playlist_items;
+        assert(fread(&num_playlist_items, 4, 1, bnk_file) == 1);
+        dprintf("num vertices: %d, prop count: %d, num_playlist items: %d, ftell: %ld\n", num_vertices, prop_count, num_playlist_items, ftell(bnk_file));
+        fseek(bnk_file, (bnk_version <= 0x59 ? 16 : 20) * num_playlist_items, SEEK_CUR);
+    } else if (bnk_version <= 0x59) {
+        getc(bnk_file);
     }
-    dprintf("ftell before the seek: %ld\n", ftell(bnk_file));
-    dprintf("gonna seek %d\n", to_seek);
-    fseek(bnk_file, to_seek, SEEK_CUR);
-    } // end else
+    fseek(bnk_file, 9, SEEK_CUR);
+    uint16_t num_rtpc;
+    assert(fread(&num_rtpc, 2, 1, bnk_file) == 1);
+    for (int i = 0; i < num_rtpc; i++) {
+        fseek(bnk_file, 12, SEEK_CUR);
+        uint16_t point_count;
+        assert(fread(&point_count, 2, 1, bnk_file) == 1);
+        fseek(bnk_file, 12 * point_count, SEEK_CUR);
+    }
+    fseek(bnk_file, 24, SEEK_CUR);
     assert(fread(&new_random_container_object.sound_id_amount, 4, 1, bnk_file) == 1);
     dprintf("sound object id amount: %u\n", new_random_container_object.sound_id_amount);
     if (new_random_container_object.sound_id_amount > 100) {
