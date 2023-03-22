@@ -254,6 +254,7 @@ void ReplaceWemData(HWND window)
             MessageBox(window, infoMessage, "a", 0);
         }
         const char* currentPosition;
+        char* currentFileNameBuffer = alloca(UNICODE_STRING_MAX_BYTES+1); // assuming long paths and utf-8 are enabled, this might be correct? idc
         for (uint32_t i = 0; i < selectedChildItemsDataList.length; i++) {
             if (i % nFilesSelected == 0)
                 currentPosition = fileNameInfo.lpstrFile;
@@ -262,7 +263,7 @@ void ReplaceWemData(HWND window)
                 currentFileName = fileNameInfo.lpstrFile;
             } else {
                 currentPosition += strlen(currentPosition) + 1;
-                currentFileName = alloca(UNICODE_STRING_MAX_BYTES+1); // assuming long paths and utf-8 are enabled, this might be correct? idc
+                currentFileName = currentFileNameBuffer;
                 sprintf(currentFileName, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
             }
             printf("current file name: \"%s\"\n", currentFileName);
