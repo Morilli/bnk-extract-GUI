@@ -79,6 +79,7 @@ WemInformation* parse_audio_bnk_file(char* bnk_path, StringHashes* string_hashes
     struct BNKFile bnkfile;
     if (parse_bnk_file_entries(bnk_file, &bnkfile) == -1) {
         eprintf("Error: Failed to find the required sections in file \"%s\". Make sure to provide the correct file.\n", bnk_path);
+        fclose(bnk_file);
         return NULL;
     }
     fclose(bnk_file);
