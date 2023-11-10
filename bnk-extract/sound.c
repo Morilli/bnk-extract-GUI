@@ -282,6 +282,7 @@ int parse_event_bnk_file(char* path, SoundSection* sounds, EventActionSection* e
     assert(fread(magic, 1, 4, bnk_file) == 4);
     if (memcmp(magic, "BKHD", 4) != 0) {
         eprintf("Error: Not a bnk file!\n");
+        fclose(bnk_file);
         return -1;
     }
     fseek(bnk_file, 4, SEEK_CUR);
@@ -291,6 +292,7 @@ int parse_event_bnk_file(char* path, SoundSection* sounds, EventActionSection* e
     uint32_t section_length = skip_to_section(bnk_file, "HIRC", true);
     if (!section_length) {
         eprintf("Error: Failed to skip to section \"HIRC\" in file \"%s\".\nMake sure to provide the correct file.\n", path);
+        fclose(bnk_file);
         return -1;
     }
     uint32_t initial_position = ftell(bnk_file);
