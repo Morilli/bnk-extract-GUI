@@ -32,51 +32,58 @@ BinaryData* WemToOgg(AudioData* wemData)
     }
 }
 
+static StringWithChildrenList* try_insert(StringWithChildrenList* root, char* name)
+{
+    bool found = false;
+    uint32_t i;
+    for (i = 0; i < root->length; i++) {
+        if ((strcmp(root->objects[i].string, name) == 0)) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        StringWithChildren newObject = {.string = strdup(name)};
+        initialize_list(&newObject.children);
+        add_object(root, &newObject);
+    }
+
+    StringWithChildrenList* inserted_element = &root->objects[i].children;
+
+    return inserted_element;
+}
+
 StringWithChildren* group_wems(AudioDataList* audio_data, StringHashes* string_hashes)
 {
     StringWithChildren* grouped_wems = calloc(1, sizeof(StringWithChildren));
     initialize_list(&grouped_wems->children);
 
     for (uint32_t i = 0; i < audio_data->length; i++) {
+        AudioData* current_audio_data = &audio_data->objects[i];
         bool inserted = false;
         for (uint32_t string_index = 0; string_index < string_hashes->length; string_index++) {
-            if (string_hashes->objects[string_index].hash == audio_data->objects[i].id) {
+            if (string_hashes->objects[string_index].hash == current_audio_data->id) {
                 StringWithChildrenList* current_root = &grouped_wems->children;
-                bool do_again = true;
-                find_object:;
-                bool found = false;
-                uint32_t j;
-                char switch_id[11];
-                if (!do_again) {
-                    sprintf(switch_id, "%u", string_hashes->objects[string_index].switch_id);
+                struct string_hash* current_event = &string_hashes->objects[string_index];
+
+                if (current_event->switch_id) {
+                    char switch_id[11];
+                    sprintf(switch_id, "%u", current_event->switch_id);
+                    current_root = try_insert(current_root, switch_id);
                 }
-                for (j = 0; j < current_root->length; j++) {
-                    if ((!do_again && strcmp(current_root->objects[j].string, switch_id) == 0) ||
-                        (strcmp(current_root->objects[j].string, string_hashes->objects[string_index].string) == 0)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    StringWithChildren newObject = {.string = do_again ? strdup(string_hashes->objects[string_index].string) : strdup(switch_id)};
-                    initialize_list(&newObject.children);
-                    add_object(current_root, &newObject);
-                }
-                if (do_again && string_hashes->objects[string_index].switch_id) {
-                    do_again = false;
-                    current_root = &grouped_wems->children.objects[j].children;
-                    goto find_object;
-                }
+                current_root = try_insert(current_root, current_event->string);
+
                 char wem_name[15];
-                sprintf(wem_name, "%u.wem", audio_data->objects[i].id);
-                add_object(&current_root->objects[j].children, (&(StringWithChildren) {.string = strdup(wem_name), .wemData = &audio_data->objects[i]}));
+                sprintf(wem_name, "%u.wem", current_audio_data->id);
+                add_object(current_root, (&(StringWithChildren) {.string = strdup(wem_name), .wemData = current_audio_data}));
                 inserted = true;
             }
         }
         if (!inserted) {
             char wem_name[15];
-            sprintf(wem_name, "%u.wem", audio_data->objects[i].id);
-            add_object(&grouped_wems->children, (&(StringWithChildren) {.string = strdup(wem_name), .wemData = &audio_data->objects[i]}));
+            sprintf(wem_name, "%u.wem", current_audio_data->id);
+            add_object(&grouped_wems->children, (&(StringWithChildren) {.string = strdup(wem_name), .wemData = current_audio_data}));
         }
     }
 
