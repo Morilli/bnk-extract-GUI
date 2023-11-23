@@ -1,6 +1,9 @@
-CFLAGS ?= -std=gnu18 -Wall -Wextra -g -Os -flto -Ilibogg-1.3.5/include -Ilibvorbis-1.3.7/include
-LDFLAGS ?= -g -lole32 -luuid -lcomctl32 -lgdi32 -lComdlg32 -static -Wl,--gc-sections
-target := gui.exe
+ifdef DEBUG
+	_DEBUG := -DDEBUG
+endif
+CFLAGS ?= -std=gnu18 -Wall -Wextra -g -Os -flto -Ilibogg-1.3.5/include -Ilibvorbis-1.3.7/include $(_DEBUG)
+LDFLAGS ?= -g -lole32 -luuid -lcomctl32 -lgdi32 -lComdlg32 -static -Wl,--gc-sections #-mwindows
+target := bnk-gui.exe
 
 all: $(target)
 strip: LDFLAGS := $(LDFLAGS) -s

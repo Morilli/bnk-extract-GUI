@@ -4,5 +4,6 @@
 *.o
 *.res
 gui.exe
+bnk-gui.exe
 .prerequisites_built
 build/
