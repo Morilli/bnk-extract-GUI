@@ -7,6 +7,7 @@
 struct string_hash {
     char* string;
     uint32_t hash;
+    uint32_t random_container_id;
     uint32_t switch_id;
 };
 typedef LIST(struct string_hash) StringHashes;

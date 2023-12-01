@@ -73,7 +73,11 @@ StringWithChildren* group_wems(AudioDataList* audio_data, StringHashes* string_h
                     current_root = try_insert(current_root, switch_id);
                 }
                 current_root = try_insert(current_root, current_event->string);
-
+                if (current_event->random_container_id) {
+                    char random_container_id[11];
+                    sprintf(random_container_id, "%u", current_event->random_container_id);
+                    current_root = try_insert(current_root, random_container_id);
+                }
                 char wem_name[15];
                 sprintf(wem_name, "%u.wem", current_audio_data->id);
                 add_object(current_root, (&(StringWithChildren) {.string = strdup(wem_name), .wemData = current_audio_data}));

@@ -582,7 +582,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
                     if (sounds.objects[k].sound_object_id == event_action->sound_object_id || sounds.objects[k].self_id == event_action->sound_object_id) {
                         dprintf("Found one!\n");
                         v_printf(2, "Hash %u of string %s belongs to file \"%u.wem\".\n", hash, read_strings->objects[i].string, sounds.objects[k].file_id);
-                        add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, sounds.objects[k].file_id, 0}));
+                        add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, sounds.objects[k].file_id, 0, 0}));
                     }
                 }
                 for (uint32_t k = 0; k < music_segments.length; k++) {
@@ -594,7 +594,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
                             dprintf("Found one 1!\n");
                             for (uint32_t m = 0; m < music_track->track_count; m++) {
                                 v_printf(2, "Hash %u of string %s belongs to file \"%u.wem\".\n", hash, read_strings->objects[i].string, music_track->file_ids[m]);
-                                add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, music_track->file_ids[m], 0 /*music_segments.objects[k].self_id*/}));
+                                add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, music_track->file_ids[m], 0, 0 /*music_segments.objects[k].self_id*/}));
                             }
                         }
                     }
@@ -627,7 +627,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
                                     dprintf("sound id amount? %u\n", random_containers.objects[k].sound_id_amount);
                                     dprintf("Found one precisely here.\n");
                                     v_printf(2, "Hash %u of string %s belongs to file \"%u.wem\".\n", hash, read_strings->objects[i].string, sounds.objects[m].file_id);
-                                    add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, sounds.objects[m].file_id, random_containers.objects[k].self_id}));
+                                    add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, sounds.objects[m].file_id, random_containers.objects[k].self_id, 0}));
                                 }
                             }
                         }
@@ -642,7 +642,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
                             if (music_track->switch_ids[l] == event_action->switch_id) {
                                 dprintf("Found one 3!\n");
                                 v_printf(2, "Hash %u of string %s belongs to file \"%u.wem\".\n", hash, read_strings->objects[i].string, music_track->file_ids[l]);
-                                add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, music_track->file_ids[l], music_track->switch_group_id}));
+                                add_object(&string_files, (&(struct string_hash) {read_strings->objects[i].string, music_track->file_ids[l], 0, music_track->switch_group_id}));
                             }
                         }
                     }
