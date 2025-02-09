@@ -46,7 +46,7 @@ protected:
         fprintf(out, "%s", str.c_str());
     }
 public:
-    explicit inline Parse_error_str(string s) : str(s) {}
+    __attribute__((always_inline)) explicit inline Parse_error_str(string s) : str(s) {}
 };
 
 class Size_mismatch : public Parse_error {

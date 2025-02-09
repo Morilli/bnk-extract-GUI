@@ -40,7 +40,7 @@ uint32_t skip_to_section(FILE* bnk_file, char name[4], bool from_beginning)
     return section_length;
 }
 
-int parse_bnk_file_entries(FILE* bnk_file, struct BNKFile* bnkfile)
+static int parse_bnk_file_entries(FILE* bnk_file, struct BNKFile* bnkfile)
 {
     uint32_t section_length = skip_to_section(bnk_file, "DIDX", false);
     if (!section_length)

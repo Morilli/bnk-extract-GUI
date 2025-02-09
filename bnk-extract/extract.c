@@ -73,10 +73,15 @@ StringWithChildren* group_wems(AudioDataList* audio_data, StringHashes* string_h
                     current_root = try_insert(current_root, switch_id);
                 }
                 current_root = try_insert(current_root, current_event->string);
-                if (current_event->random_container_id) {
-                    char random_container_id[11];
-                    sprintf(random_container_id, "%u", current_event->random_container_id);
-                    current_root = try_insert(current_root, random_container_id);
+                if (current_event->container_id) {
+                    char container_id[11];
+                    sprintf(container_id, "%u", current_event->container_id);
+                    current_root = try_insert(current_root, container_id);
+                }
+                if (current_event->music_segment_id) {
+                    char music_track_id[11];
+                    sprintf(music_track_id, "%u", current_event->music_segment_id);
+                    current_root = try_insert(current_root, music_track_id);
                 }
                 char wem_name[15];
                 sprintf(wem_name, "%u.wem", current_audio_data->id);
