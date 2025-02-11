@@ -24,5 +24,6 @@ void* FillProgressBar(void* _args);
 uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
 char* GetPathFromTextBox(HWND textBox);
+void AddWemFiles(HWND window, HTREEITEM parentItem);
 
 #endif

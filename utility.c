@@ -397,12 +397,25 @@ void* FillProgressBar(void* _args)
 
 uint8_t* WavFromOgg(ReadableBinaryData* oggData)
 {
+    if (!oggData || !oggData->data) return NULL;
+    
     OggVorbis_File oggDataInfo;
     int return_value = ov_open_callbacks(oggData, &oggDataInfo, NULL, 0, oggCallbacks);
     printf("return value: %d\n", return_value);
     if (return_value != 0) return NULL;
-    size_t rawPcmSize = ov_pcm_total(&oggDataInfo, -1) * oggDataInfo.vi->channels * 2; // 16 bit?
+    
+    ogg_int64_t total_samples = ov_pcm_total(&oggDataInfo, -1);
+    if (total_samples < 0) {
+        ov_clear(&oggDataInfo);
+        return NULL;
+    }
+    
+    size_t rawPcmSize = total_samples * oggDataInfo.vi->channels * 2; // 16 bit
     uint8_t* rawPcmDataFromOgg = malloc(rawPcmSize + 44);
+    if (!rawPcmDataFromOgg) {
+        ov_clear(&oggDataInfo);
+        return NULL;
+    }
     memcpy(rawPcmDataFromOgg, "RIFF", 4);
     memcpy(rawPcmDataFromOgg + 4, &(uint32_t) {rawPcmSize + 36}, 4);
     memcpy(rawPcmDataFromOgg + 8, "WAVEfmt ", 8);
@@ -439,4 +452,99 @@ char* GetPathFromTextBox(HWND textBox)
     memmove(path, path_start, path_end - path_start + 2);
 
     return path;
+}
+void AddWemFiles(HWND window, HTREEITEM parentItem)
+{
+    // Get root item and its AudioDataList
+    HTREEITEM rootItem = TreeView_GetRoot(treeview);
+    TVITEM rootTvItem = {
+        .mask = TVIF_PARAM,
+        .hItem = rootItem
+    };
+    TreeView_GetItem(treeview, &rootTvItem);
+    AudioDataList* rootAudioList = (AudioDataList*)rootTvItem.lParam;
+
+    char* fileNameBuffer = malloc(UINT16_MAX);
+    fileNameBuffer[0] = '\0';
+    OPENFILENAME fileNameInfo = {
+        .lStructSize = sizeof(OPENFILENAME),
+        .hwndOwner = window,
+        .lpstrFile = fileNameBuffer,
+        .nMaxFile = UINT16_MAX,
+        .Flags = OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER,
+        .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
+    };
+
+    if (GetOpenFileName(&fileNameInfo)) {
+        const char* currentPosition = fileNameInfo.lpstrFile;
+        char* currentFileNameBuffer = alloca(UNICODE_STRING_MAX_BYTES+1);
+        
+        // Skip past the directory name
+        currentPosition += strlen(currentPosition) + 1;
+        
+        while (*currentPosition) {
+            sprintf(currentFileNameBuffer, "%s\\%s", fileNameInfo.lpstrFile, currentPosition);
+            
+            FILE* newDataFile = fopen(currentFileNameBuffer, "rb");
+            if (!newDataFile) {
+                char errorMessage[512];
+                sprintf(errorMessage, "Failed to open file \"%s\"!", currentFileNameBuffer);
+                MessageBox(window, errorMessage, "Failed to open wem file", MB_ICONERROR);
+                currentPosition += strlen(currentPosition) + 1;
+                continue;
+            }
+
+            // Create new AudioData
+            AudioData* newWemData = malloc(sizeof(AudioData));
+            fseek(newDataFile, 0, SEEK_END);
+            newWemData->length = ftell(newDataFile);
+            newWemData->data = malloc(newWemData->length);
+            rewind(newDataFile);
+            fread(newWemData->data, newWemData->length, 1, newDataFile);
+            fclose(newDataFile);
+
+            // Extract ID from filename (assuming filename format like "123456789.wem")
+            const char* idStart = strrchr(currentPosition, '\\');
+            if (!idStart) idStart = currentPosition;
+            else idStart++;
+            newWemData->id = atoi(idStart);
+
+            // Get event's AudioDataList
+            TVITEM parentTvItem = {
+                .mask = TVIF_PARAM,
+                .hItem = parentItem
+            };
+            TreeView_GetItem(treeview, &parentTvItem);
+            AudioDataList* eventAudioList = (AudioDataList*)parentTvItem.lParam;
+            
+            // Add to event's AudioDataList
+            eventAudioList->length++;
+            eventAudioList->objects = realloc(eventAudioList->objects, eventAudioList->length * sizeof(AudioData));
+            eventAudioList->objects[eventAudioList->length - 1] = *newWemData;
+
+            // Add to root AudioDataList for persistence
+            rootAudioList->length++;
+            rootAudioList->objects = realloc(rootAudioList->objects, rootAudioList->length * sizeof(AudioData));
+            rootAudioList->objects[rootAudioList->length - 1] = *newWemData;
+
+            // Add to treeview
+            char itemText[32];
+            sprintf(itemText, "%u.wem", newWemData->id);
+            TVINSERTSTRUCT newItemInfo = {
+                .hInsertAfter = TVI_SORT,
+                .hParent = parentItem,
+                .item = {
+                    .mask = TVIF_TEXT | TVIF_PARAM,
+                    .pszText = itemText,
+                    .lParam = (LPARAM)&rootAudioList->objects[rootAudioList->length - 1]
+                }
+            };
+            TreeView_InsertItem(treeview, &newItemInfo);
+            
+            free(newWemData); // Free the temporary structure since we copied its contents
+            currentPosition += strlen(currentPosition) + 1;
+        }
+    }
+    
+    free(fileNameBuffer);
 }

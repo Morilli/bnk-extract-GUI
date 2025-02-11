@@ -21,7 +21,7 @@ static HINSTANCE me;
 static HWND mainWindow;
 static HWND BinTextBox, AudioTextBox, EventsTextBox;
 static HWND BinFileSelectButton, AudioFileSelectButton, EventsFileSelectButton, GoButton, XButton, ExtractButton,
-            SaveButton, ReplaceButton, PlayAudioButton, StopAudioButton, DeleteSystem32Button;
+            SaveButton, ReplaceButton, PlayAudioButton, StopAudioButton, AddWemButton, DeleteSystem32Button;
 static HWND DeleteSystem32ProgressBar;
 static HACCEL KeyCombinations;
 static uint8_t* oldPcmData;
@@ -216,6 +216,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     Button_Enable(SaveButton, isRootItem);
                     Button_Enable(ReplaceButton, isChildItem);
                     Button_Enable(PlayAudioButton, isChildItem);
+                    Button_Enable(AddWemButton, !isChildItem && !isRootItem); // Enable for event items only
 
                     return 0;
                 }
@@ -315,6 +316,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     }
                 } else if ((HWND) lParam == ReplaceButton) {
                     ReplaceWemData(hwnd);
+                } else if ((HWND) lParam == AddWemButton) {
+                    HTREEITEM selectedItem = TreeView_GetSelection(treeview);
+                    if (selectedItem) {
+                        AddWemFiles(mainWindow, selectedItem);
+                    }
                 } else if ((HWND) lParam == PlayAudioButton) {
                     HTREEITEM selectedItem = rightClickedItem
                         ? rightClickedItem
@@ -442,6 +448,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 600, 200, 130, 24, mainWindow, NULL, hInstance, NULL);
     PlayAudioButton = CreateWindowEx(0, "BUTTON", "Play sound", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, 600, 250, 130, 24, mainWindow, NULL, hInstance, NULL);
     StopAudioButton = CreateWindowEx(0, "BUTTON", "Stop all playing sounds", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 280, 130, 24, mainWindow, NULL, hInstance, NULL);
+    AddWemButton = CreateWindowEx(0, "BUTTON", "Add wem file", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, 600, 320, 130, 24, mainWindow, NULL, hInstance, NULL);
     DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(mainWindow, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
