@@ -84,12 +84,22 @@ struct random_container {
     uint32_t* sound_ids;
 };
 
+struct switch_container {
+    uint32_t self_id;
+    uint32_t parent_id;
+    uint8_t group_type;
+    uint32_t group_id;
+    uint32_t num_children;
+    uint32_t* children;
+};
+
 typedef LIST(struct sound) SoundSection;
-typedef LIST(struct music_track) MusicTrackSection;
-typedef LIST(struct music_container) MusicContainerSection;
 typedef LIST(struct event_action) EventActionSection;
 typedef LIST(struct event) EventSection;
 typedef LIST(struct random_container) RandomContainerSection;
+typedef LIST(struct switch_container) SwitchContainerSection;
+typedef LIST(struct music_container) MusicContainerSection;
+typedef LIST(struct music_track) MusicTrackSection;
 typedef LIST(struct music_switch) MusicSwitchSection;
 
 struct BNKSections {
@@ -97,6 +107,7 @@ struct BNKSections {
     EventActionSection event_actions;
     EventSection events;
     RandomContainerSection random_containers;
+    SwitchContainerSection switch_containers;
     MusicContainerSection music_segments;
     MusicTrackSection music_tracks;
     MusicSwitchSection music_switches;
@@ -267,6 +278,14 @@ void free_random_container_section(RandomContainerSection* section)
     free(section->objects);
 }
 
+void free_switch_container_section(SwitchContainerSection* section)
+{
+    for (uint32_t i = 0; i < section->length; i++) {
+        free(section->objects[i].children);
+    }
+    free(section->objects);
+}
+
 void free_music_container_section(MusicContainerSection* section)
 {
     for (uint32_t i = 0; i < section->length; i++) {
@@ -319,6 +338,26 @@ int read_random_container_object(FILE* bnk_file, RandomContainerSection* random_
     assert(fread(new_random_container_object.sound_ids, 4, new_random_container_object.sound_id_amount, bnk_file) == new_random_container_object.sound_id_amount);
 
     add_object(random_containers, &new_random_container_object);
+
+    return 0;
+}
+
+int read_switch_container_object(FILE *bnk_file, SwitchContainerSection* switch_containers, uint32_t bnk_version)
+{
+    struct switch_container new_switch_container_object;
+    assert(fread(&new_switch_container_object.self_id, 4, 1, bnk_file) == 1);
+
+    new_switch_container_object.parent_id = skip_base_params(bnk_file, bnk_version, NULL);
+    assert(fread(&new_switch_container_object.group_type, 1, 1, bnk_file) == 1);
+    if (bnk_version <= 0x59) fseek(bnk_file, 3, SEEK_CUR);
+    assert(fread(&new_switch_container_object.group_id, 4, 1, bnk_file) == 1);
+    fseek(bnk_file, 5, SEEK_CUR);
+
+    assert(fread(&new_switch_container_object.num_children, 4, 1, bnk_file) == 1);
+    new_switch_container_object.children = malloc(new_switch_container_object.num_children * sizeof(uint32_t));
+    assert(fread(new_switch_container_object.children, 4, new_switch_container_object.num_children, bnk_file) == new_switch_container_object.num_children);
+
+    add_object(switch_containers, &new_switch_container_object);
 
     return 0;
 }
@@ -542,6 +581,9 @@ int parse_event_bnk_file(char* path, struct BNKSections* sections)
             case 5:
                 read_random_container_object(bnk_file, &sections->random_containers, bnk_version);
                 break;
+            case 6:
+                read_switch_container_object(bnk_file, &sections->switch_containers, bnk_version);
+                break;
             case 10:
                 read_music_container_object(bnk_file, &sections->music_segments, bnk_version);
                 break;
@@ -609,6 +651,15 @@ void add_connected_files(char* string, uint32_t id, uint32_t parent_id, StringHa
     if (random_container) {
         for (uint32_t i = 0; i < random_container->sound_id_amount; i++) {
             add_connected_files(string, random_container->sound_ids[i], id, stringHashes, sections);
+        }
+        return;
+    }
+
+    struct switch_container* switch_container = NULL;
+    find_object_s(&sections->switch_containers, switch_container, self_id, id);
+    if (switch_container) {
+        for (uint32_t i = 0; i < switch_container->num_children; i++) {
+            add_connected_files(string, switch_container->children[i], id, stringHashes, sections);
         }
         return;
     }
@@ -731,6 +782,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
     initialize_list(&sections.event_actions);
     initialize_list(&sections.events);
     initialize_list(&sections.random_containers);
+    initialize_list(&sections.switch_containers);
     initialize_list(&sections.music_segments);
     initialize_list(&sections.music_tracks);
     initialize_list(&sections.music_switches);
@@ -745,6 +797,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
     sort_list(&sections.event_actions, self_id);
     sort_list(&sections.events, self_id);
     sort_list(&sections.random_containers, self_id);
+    sort_list(&sections.switch_containers, self_id);
     sort_list(&sections.music_segments, self_id);
     sort_list(&sections.music_tracks, self_id);
     sort_list(&sections.music_switches, self_id);
@@ -811,6 +864,7 @@ WemInformation* bnk_extract(int argc, char* argv[])
     free_simple_section(&sections.event_actions);
     free_event_section(&sections.events);
     free_random_container_section(&sections.random_containers);
+    free_switch_container_section(&sections.switch_containers);
     free_music_container_section(&sections.music_segments);
     free_music_track_section(&sections.music_tracks);
     free_music_switch_section(&sections.music_switches);
