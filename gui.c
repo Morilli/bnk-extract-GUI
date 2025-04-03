@@ -339,7 +339,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         .hwndOwner = mainWindow,
                         .lpstrFile = fileNameBuffer,
                         .nMaxFile = 255,
-                        .Flags = OFN_FILEMUSTEXIST
+                        .Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR
                     };
                     if (GetOpenFileName(&fileNameInfo)) {
                         if ((HWND) lParam == BinFileSelectButton) SetWindowText(BinTextBox, fileNameBuffer);

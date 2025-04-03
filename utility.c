@@ -182,7 +182,7 @@ void SaveBnkOrWpk(HWND window, HTREEITEM root)
         .lpstrFile = tvItem.pszText,
         .nMaxFile = 255,
         .lpstrFilter = "Audio files\0*.bnk;*.wpk\0All files\0*.*\0\0",
-        .Flags = OFN_OVERWRITEPROMPT
+        .Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR
     };
     if (GetSaveFileName(&fileNameInfo)) {
         char* selectedFile = fileNameInfo.lpstrFile;
@@ -227,7 +227,7 @@ void ReplaceWemData(HWND window)
         .hwndOwner = window,
         .lpstrFile = fileNameBuffer,
         .nMaxFile = UINT16_MAX,
-        .Flags = OFN_FILEMUSTEXIST,
+        .Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR,
         .lpstrFilter = "Wem audio files\0*.wem\0All files\0*.*\0\0"
     };
     if (selectedChildItemsDataList.length > 1)
