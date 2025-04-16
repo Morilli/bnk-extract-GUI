@@ -700,7 +700,7 @@ void add_connected_files(char* string, uint32_t id, uint32_t parent_id, StringHa
 }
 
 
-#define VERSION "1.8"
+#define VERSION "1.9"
 void print_help()
 {
     printf("bnk-extract "VERSION" - a tool to extract bnk and wpk files, optionally sorting them into named groups.\n\n");
