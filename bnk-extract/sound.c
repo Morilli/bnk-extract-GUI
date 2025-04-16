@@ -641,7 +641,7 @@ void add_connected_files(char* string, uint32_t id, uint32_t parent_id, StringHa
     find_object_s(&sections->music_playlists, music_playlist, self_id, id);
     if (music_playlist) {
         for (uint32_t i = 0; i < music_playlist->music_track_id_amount; i++) {
-            add_connected_files(string, music_playlist->music_track_ids[i], id, stringHashes, sections);
+            add_connected_files(string, music_playlist->music_track_ids[i], music_playlist->music_track_id_amount > 1 ? id : parent_id, stringHashes, sections);
         }
         return;
     }
@@ -650,7 +650,7 @@ void add_connected_files(char* string, uint32_t id, uint32_t parent_id, StringHa
     find_object_s(&sections->random_containers, random_container, self_id, id);
     if (random_container) {
         for (uint32_t i = 0; i < random_container->sound_id_amount; i++) {
-            add_connected_files(string, random_container->sound_ids[i], id, stringHashes, sections);
+            add_connected_files(string, random_container->sound_ids[i], random_container->sound_id_amount > 1 ? id : parent_id, stringHashes, sections);
         }
         return;
     }
@@ -677,7 +677,7 @@ void add_connected_files(char* string, uint32_t id, uint32_t parent_id, StringHa
                     .string = string,
                     .hash = music_track->file_ids[j],
                     .container_id = parent_id,
-                    .music_segment_id = music_segment->self_id
+                    .music_segment_id = music_segment->music_track_id_amount > 1 ? music_segment->self_id : 0
                 }));
             }
         }
