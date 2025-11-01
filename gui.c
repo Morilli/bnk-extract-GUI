@@ -407,13 +407,16 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
         return 0;
     }
 
+    const float dpiFactor = (float)GetSystemDpi() / USER_DEFAULT_SCREEN_DPI;
+#define dpi(n) ((n) * dpiFactor)
+
     // Step 2: Creating the Window
     mainWindow = CreateWindowEx(
         WS_EX_LAYERED,
         PROGRAM_NAME,
         "high quality gui uwu",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 525,
+        CW_USEDEFAULT, CW_USEDEFAULT, dpi(800), dpi(525),
         NULL, NULL, hInstance, NULL
     );
     if (!mainWindow) {
@@ -423,31 +426,31 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(mainWindow, 0, 231, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 559, 380, mainWindow, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, dpi(6), dpi(80), dpi(559), dpi(380), mainWindow, NULL, hInstance, NULL);
     SetWindowSubclass(treeview, TreeviewWndProc, 0, 0);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
-    BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 10, 450, 20, mainWindow, NULL, hInstance, NULL);
-    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 31, 450, 20, mainWindow, NULL, hInstance, NULL);
-    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, 115, 52, 450, 20, mainWindow, NULL, hInstance, NULL);
+    BinTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, dpi(115), dpi(10), dpi(450), dpi(20), mainWindow, NULL, hInstance, NULL);
+    AudioTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, dpi(115), dpi(31), dpi(450), dpi(20), mainWindow, NULL, hInstance, NULL);
+    EventsTextBox = CreateWindowEx(0, "EDIT", NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL | WS_BORDER, dpi(115), dpi(52), dpi(450), dpi(20), mainWindow, NULL, hInstance, NULL);
 
     // buttons yay
-    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 9, 110, 22, mainWindow, NULL, hInstance, NULL);
-    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 30, 110, 22, mainWindow, NULL, hInstance, NULL);
-    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 5, 51, 110, 22, mainWindow, NULL, hInstance, NULL);
-    GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 20, 130, 24, mainWindow, NULL, hInstance, NULL);
-    XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 54, 130, 24, mainWindow, NULL, hInstance, NULL);
-    ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 100, 130, 24, mainWindow, NULL, hInstance, NULL);
-    ReplaceButton = CreateWindowEx(0, "BUTTON", "Replace wem data", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, 600, 140, 130, 24, mainWindow, NULL, hInstance, NULL);
-    SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, 600, 200, 130, 24, mainWindow, NULL, hInstance, NULL);
-    PlayAudioButton = CreateWindowEx(0, "BUTTON", "Play sound", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, 600, 250, 130, 24, mainWindow, NULL, hInstance, NULL);
-    StopAudioButton = CreateWindowEx(0, "BUTTON", "Stop all playing sounds", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 600, 280, 130, 24, mainWindow, NULL, hInstance, NULL);
-    DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 600, 400, 130, 24, mainWindow, NULL, hInstance, NULL);
+    BinFileSelectButton = CreateWindowEx(0, "BUTTON", "select bin file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(5), dpi(9), dpi(110), dpi(22), mainWindow, NULL, hInstance, NULL);
+    AudioFileSelectButton = CreateWindowEx(0, "BUTTON", "select audio file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(5), dpi(30), dpi(110), dpi(22), mainWindow, NULL, hInstance, NULL);
+    EventsFileSelectButton = CreateWindowEx(0, "BUTTON", "select events file", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(5), dpi(51), dpi(110), dpi(22), mainWindow, NULL, hInstance, NULL);
+    GoButton = CreateWindowEx(0, "BUTTON", "Parse files", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(600), dpi(20), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    XButton = CreateWindowEx(0, "BUTTON", "Delete Treeview", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, dpi(600), dpi(54), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    ExtractButton = CreateWindowEx(0, "BUTTON", "Extract selection", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(600), dpi(100), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    ReplaceButton = CreateWindowEx(0, "BUTTON", "Replace wem data", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, dpi(600), dpi(140), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    SaveButton = CreateWindowEx(0, "BUTTON", "Save as bnk/wpk", WS_CHILD | WS_VISIBLE | WS_DISABLED | WS_TABSTOP | BS_PUSHBUTTON, dpi(600), dpi(200), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    PlayAudioButton = CreateWindowEx(0, "BUTTON", "Play sound", WS_CHILD | WS_VISIBLE | WS_DISABLED | BS_PUSHBUTTON, dpi(600), dpi(250), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    StopAudioButton = CreateWindowEx(0, "BUTTON", "Stop all playing sounds", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, dpi(600), dpi(280), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
+    DeleteSystem32Button = CreateWindowEx(0, "BUTTON", "Delete system32", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, dpi(600), dpi(400), dpi(130), dpi(24), mainWindow, NULL, hInstance, NULL);
     // disable the ugly selection outline of the text when a button gets pushed
     SendMessage(mainWindow, WM_CHANGEUISTATE, MAKELONG(UIS_SET, UISF_HIDEFOCUS), 0);
 
     // useless progress bar
-    DeleteSystem32ProgressBar = CreateWindowEx(0, PROGRESS_CLASS, "Delete system32", WS_CHILD | PBS_SMOOTH, 578, 370, 170, 20, mainWindow, NULL, hInstance, NULL);
+    DeleteSystem32ProgressBar = CreateWindowEx(0, PROGRESS_CLASS, "Delete system32", WS_CHILD | PBS_SMOOTH, dpi(578), dpi(370), dpi(170), dpi(20), mainWindow, NULL, hInstance, NULL);
 
     ShowWindow(mainWindow, nCmdShow);
     EnumChildWindows(mainWindow, EnumChildProc, 0);

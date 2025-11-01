@@ -440,3 +440,11 @@ char* GetPathFromTextBox(HWND textBox)
 
     return path;
 }
+
+// GetDpiForSystem is win10+ only, might as well keep compatibility while it's free
+int GetSystemDpi() {
+    HDC screen = GetDC(NULL);
+    int dpi = GetDeviceCaps(screen, LOGPIXELSX);
+    ReleaseDC(NULL, screen);
+    return dpi;
+}

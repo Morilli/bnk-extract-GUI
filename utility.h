@@ -25,4 +25,6 @@ uint8_t* WavFromOgg(ReadableBinaryData* oggData);
 
 char* GetPathFromTextBox(HWND textBox);
 
+int GetSystemDpi();
+
 #endif
