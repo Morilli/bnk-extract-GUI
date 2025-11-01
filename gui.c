@@ -423,7 +423,7 @@ int WINAPI WinMain(HINSTANCE hInstance, __attribute__((unused)) HINSTANCE hPrevI
     SetLayeredWindowAttributes(mainWindow, 0, 231, LWA_ALPHA);
 
     // create a tree view
-    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 480, 380, mainWindow, NULL, hInstance, NULL);
+    treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, NULL, WS_CHILD | TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_DISABLEDRAGDROP | TVS_SHOWSELALWAYS, 6, 80, 559, 380, mainWindow, NULL, hInstance, NULL);
     SetWindowSubclass(treeview, TreeviewWndProc, 0, 0);
 
     // three text fields for the bin, audio bnk/wpk and events bnk
