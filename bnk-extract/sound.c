@@ -456,7 +456,7 @@ int read_music_track_object(FILE* bnk_file, MusicTrackSection* music_tracks, uin
         assert(fread(&source_info, sizeof(struct track_source_info), 1, bnk_file) == 1);
         new_music_track_object.file_ids[source_info.track_index] = source_info.file_id;
     }
-    fseek(bnk_file, 4, SEEK_CUR);
+    if (count) fseek(bnk_file, 4, SEEK_CUR);
     skip_clip_automation(bnk_file);
     new_music_track_object.parent_id = skip_base_params(bnk_file, bnk_version, NULL);
     uint8_t track_type = getc(bnk_file);
